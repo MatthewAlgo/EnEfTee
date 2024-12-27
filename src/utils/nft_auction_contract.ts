@@ -87,6 +87,11 @@ export interface NFTAuctionContract {
   cancelAuction(
     tokenId: ethers.BigNumberish
   ): Promise<ethers.ContractTransactionResponse>;
+
+  // Add new method for finalizing expired auctions
+  finalizeExpiredAuction(
+    tokenId: ethers.BigNumberish
+  ): Promise<ethers.ContractTransactionResponse>;
 }
 
 export function createNFTAuctionContract(
@@ -134,6 +139,9 @@ export function createNFTAuctionContract(
       contract.emergencyWithdrawNFT(tokenId, recipient),
     
     cancelAuction: (tokenId) => 
-      contract.cancelAuction(tokenId)
+      contract.cancelAuction(tokenId),
+
+    finalizeExpiredAuction: (tokenId) => 
+      contract.finalizeExpiredAuction(tokenId),
   };
 }

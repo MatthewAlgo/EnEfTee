@@ -40,6 +40,17 @@ function AuctionsContent() {
   const [bidAmount, setBidAmount] = useState('');
   const [timeLeft, setTimeLeft] = useState<{[key: string]: string}>({});
 
+  const finalizeAuction = async (tokenId: string) => {
+    try {
+      const signer = await provider!.getSigner();
+      const auctionContract = createNFTAuctionContract(AUCTION_CONTRACT_ADDRESS, signer);
+      await auctionContract.finalizeExpiredAuction(tokenId);
+      await loadAuctions();
+    } catch (error) {
+      console.error('Error finalizing auction:', error);
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated && provider) {
       loadAuctions();
@@ -67,6 +78,21 @@ function AuctionsContent() {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, [auctions]);
+
+  useEffect(() => {
+    const checkAndFinalizeExpiredAuctions = async () => {
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      auctions.forEach(async (auction) => {
+        if (auction.active && auction.endTime <= now) {
+          await finalizeAuction(auction.tokenId);
+        }
+      });
+    };
+
+    if (auctions.length > 0) {
+      checkAndFinalizeExpiredAuctions();
+    }
   }, [auctions]);
 
   const loadAuctions = async () => {
@@ -139,6 +165,26 @@ function AuctionsContent() {
       alert('Failed to place bid: ' + (error as Error).message);
     }
   };
+
+  if (isConnecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-purple-900">
+        <p className="text-white text-lg">Connecting...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-purple-900">
+        <Header onMenuClick={() => {}} />
+        <main className="container mx-auto px-4 py-8">
+          <p className="text-white text-center">Please connect your wallet to view auctions.</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-purple-900">

@@ -9,7 +9,7 @@ const NFTAuctionModule = buildModule("NFTAuctionModule", (m) => {
     "100000000000000000",      // Creation fee (0.1 ETH)
     "50000000000000000",       // Bid fee (0.05 ETH)
     "250",                     // Finalize percentage (2.5%)
-    "3600",                    // Min duration (1 hour)
+    "30",                      // Min duration (30 seconds)
     "604800"                   // Max duration (1 week)
   ]);
 

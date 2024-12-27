@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '../components/common/header/header';
 import Footer from '../components/common/footer/footer';
 import Homepage from '../components/common/homepage/homepage';
@@ -19,72 +20,23 @@ export default function Home() {
 function MainContent() {
   const { isAuthenticated } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/explore');
+    }
+  }, [isAuthenticated, router]);
+
+  if (isAuthenticated) {
+    return null; // Return null while redirecting
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-purple-900">
       <Header onMenuClick={() => setIsDrawerOpen(true)} />
       <SideDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
-      
-      {isAuthenticated ? (
-        <main className="container mx-auto px-4 py-8">
-          <div className="grid gap-8 md:grid-cols-12">
-            {/* Main Content Area */}
-            <div className="md:col-span-8">
-              {/* Featured Section */}
-              <section className="bg-gray-800/30 rounded-2xl p-6 mb-8">
-                <h2 className="text-2xl font-bold text-white mb-6">Featured Auctions</h2>
-                <div className="grid gap-4">
-                  <NFTCard />
-                  <NFTCard />
-                </div>
-              </section>
-
-              {/* Live Auctions */}
-              <section className="bg-gray-800/30 rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <Clock className="text-purple-400" />
-                  <h2 className="text-2xl font-bold text-white">Live Auctions</h2>
-                </div>
-                <div className="grid gap-4">
-                  <NFTCard />
-                  <NFTCard />
-                  <NFTCard />
-                </div>
-              </section>
-            </div>
-
-            {/* Sidebar */}
-            <div className="md:col-span-4 space-y-6">
-              {/* Top Collections */}
-              <div className="bg-gray-800/30 rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <TrendingUp className="text-purple-400" />
-                  <h3 className="text-xl font-bold text-white">Top Collections</h3>
-                </div>
-                <div className="space-y-4">
-                  <CollectionItem rank={1} name="Crypto Punks" volume="1.2K ETH" change="+12.3%" />
-                  <CollectionItem rank={2} name="Bored Apes" volume="950 ETH" change="+8.7%" />
-                  <CollectionItem rank={3} name="Art Blocks" volume="820 ETH" change="+5.2%" />
-                </div>
-              </div>
-
-              {/* Hot Bids */}
-              <div className="bg-gray-800/30 rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <Flame className="text-purple-400" />
-                  <h3 className="text-xl font-bold text-white">Hot Bids</h3>
-                </div>
-                <div className="space-y-4">
-                  <NFTCard compact />
-                  <NFTCard compact />
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-      ) : (
-        <Homepage />
-      )}
+      <Homepage />
       <Footer />
     </div>
   );

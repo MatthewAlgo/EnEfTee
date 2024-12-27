@@ -36,7 +36,7 @@ function MyNFTsContent() {
   const [auctionForm, setAuctionForm] = useState({
     startingPrice: '',
     reservePrice: '',
-    duration: '3600'
+    duration: '3600' // Default duration remains 1 hour
   });
 
   useEffect(() => {
@@ -55,8 +55,14 @@ function MyNFTsContent() {
       
       console.log("Loading NFTs for address:", address);
       const tokenIds = await registryContract.getUserNFTs(address);
-      console.log("NFT token IDs:", tokenIds.map(id => id.toString()));
+      console.log("NFT token IDs:", tokenIds);
       
+      if (!tokenIds || tokenIds.length === 0) {
+        console.log("No NFTs found for user");
+        setNfts([]);
+        return;
+      }
+
       const nftPromises = tokenIds.map(async (tokenId) => {
         try {
           const uri = await nftContract.tokenURI(tokenId);
@@ -205,6 +211,9 @@ function MyNFTsContent() {
                     onChange={(e) => setAuctionForm({ ...auctionForm, duration: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white"
                   >
+                    <option value="60">1 minute</option>
+                    <option value="600">10 minutes</option>
+                    <option value="900">15 minutes</option>
                     <option value="3600">1 hour</option>
                     <option value="86400">1 day</option>
                     <option value="604800">1 week</option>

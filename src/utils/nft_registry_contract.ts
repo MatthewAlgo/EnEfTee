@@ -18,6 +18,12 @@ export interface NFTRegistryContract {
   getUserNFTs(
     user: string
   ): Promise<ethers.BigNumberish[]>;
+
+  getAllNFTs(): Promise<Array<ethers.BigNumberish>>;
+  
+  getNFTCollection(
+    tokenId: ethers.BigNumberish
+  ): Promise<string>;
 }
 
 export function createNFTRegistryContract(
@@ -31,7 +37,15 @@ export function createNFTRegistryContract(
       contract.registerNFT(collection, owner, tokenId),
     transferNFT: (collection, from, to, tokenId) => 
       contract.transferNFT(collection, from, to, tokenId),
-    getUserNFTs: (user) => 
-      contract.getUserNFTs(user)
+    getUserNFTs: async (user) => {
+      const result = await contract.getUserNFTs(user);
+      return Array.isArray(result) ? result : [];
+    },
+    getAllNFTs: async () => {
+      const result = await contract.getAllNFTs();
+      return Array.isArray(result) ? result : [];
+    },
+    getNFTCollection: (tokenId) => 
+      contract.getNFTCollection(tokenId)
   };
 }
