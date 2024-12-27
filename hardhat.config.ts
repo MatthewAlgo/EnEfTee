@@ -1,29 +1,53 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+const { HardhatUserConfig } = require("hardhat/config");
+require("@nomicfoundation/hardhat-toolbox");
+const dotenv = require("dotenv");
 
-import * as dotenv from "dotenv";
-
-// Load environment variables from .env file
 dotenv.config();
 
-// Ensure the seed phrase is available
 if (!process.env.SEED_PHRASE) {
   throw new Error("Please set your SEED_PHRASE in a .env file");
 }
 
-const config: HardhatUserConfig = {
-  solidity: "0.8.28",
+const config = {
+  solidity: {
+    version: "0.8.19",
+    compilers: [
+      {
+        version: "0.8.19",
+      },
+      {
+        version: "0.8.18",
+      },
+    ],
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
   networks: {
     hardhat: {
       accounts: {
         mnemonic: process.env.SEED_PHRASE,
-        // Specify the number of accounts and initial balance
-        count: 20,
-        accountsBalance: "10000000000000000000000" // 10000 ETH in wei
       },
-      chainId: 31337
-    }
+      chainId: 31337,
+    },
+  },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts"
+  },
+  sourceDirs: [
+    "./contracts",
+    "./contracts/interfaces"
+  ],
+  env: {
+    NFT_CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS,
+    AUCTION_CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS
   }
 };
 
-export default config;
+module.exports = config;
