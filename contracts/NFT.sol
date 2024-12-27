@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import "./interfaces/InterfaceERC721.sol";
 import "./interfaces/Ownable.sol";
+import "./NFTRegistry.sol";
 
 contract NFT is InterfaceERC721, Ownable {
     string private _name;
@@ -14,9 +15,14 @@ contract NFT is InterfaceERC721, Ownable {
     mapping(address => mapping(address => bool)) private _operatorApprovals;
     mapping(uint256 => string) private _tokenURIs;
 
-    constructor(string memory name_, string memory symbol_) {
+    NFTRegistry private _registry;
+
+    event TokenURISet(uint256 indexed tokenId, string uri);
+
+    constructor(string memory name_, string memory symbol_, address registryAddress) {
         _name = name_;
         _symbol = symbol_;
+        _registry = NFTRegistry(registryAddress);
     }
 
     function name() external view override returns (string memory) {
@@ -27,8 +33,11 @@ contract NFT is InterfaceERC721, Ownable {
         return _symbol;
     }
 
-    function tokenURI(uint256 tokenId) external pure override returns (string memory) {
-        return string(abi.encodePacked("https://api.nft.com/token/", tokenId));
+    function tokenURI(uint256 tokenId) external view override returns (string memory) {
+        require(_owners[tokenId] != address(0), "Token does not exist");
+        string memory uri = _tokenURIs[tokenId];
+        require(bytes(uri).length > 0, "URI not set");
+        return uri;
     }
 
     function balanceOf(address owner) external view override returns (uint256) {
@@ -77,12 +86,15 @@ contract NFT is InterfaceERC721, Ownable {
     function mintWithMetadata(address to, uint256 tokenId, string memory tokenURI_) external {
         require(to != address(0), "Invalid address");
         require(_owners[tokenId] == address(0), "Token already minted");
+        require(bytes(tokenURI_).length > 0, "URI cannot be empty");
 
         _balances[to] += 1;
         _owners[tokenId] = to;
-        _tokenURIs[tokenId] = tokenURI_; // Save the tokenURI in a mapping
+        _tokenURIs[tokenId] = tokenURI_;
 
+        emit TokenURISet(tokenId, tokenURI_);
         emit Transfer(address(0), to, tokenId);
+        _registry.registerNFT(address(this), to, tokenId);
     }
 
     function _transfer(address from, address to, uint256 tokenId) internal {
@@ -95,6 +107,7 @@ contract NFT is InterfaceERC721, Ownable {
         _owners[tokenId] = to;
 
         emit Transfer(from, to, tokenId);
+        _registry.transferNFT(address(this), from, to, tokenId);
     }
 
     function _approve(address to, uint256 tokenId) private {
@@ -105,5 +118,9 @@ contract NFT is InterfaceERC721, Ownable {
     function _isApprovedOrOwner(address spender, uint256 tokenId) private view returns (bool) {
         address owner = _owners[tokenId];
         return (spender == owner || _tokenApprovals[tokenId] == spender || _operatorApprovals[owner][spender]);
+    }
+
+    function getAllTokensOfOwner(address owner) external view returns (uint256[] memory) {
+        return _registry.getUserNFTs(owner);
     }
 }

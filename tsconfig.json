@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES6", // ES6 is more modern and widely supported than ES5
+    "target": "es2020", // Updated to es2020 for better compatibility
     "lib": [
       "DOM",
       "DOM.Iterable",
@@ -12,7 +12,7 @@
     "forceConsistentCasingInFileNames": true, // Enforces consistent file name casing
     "noEmit": true, // Prevents emitting compiled JS files
     "esModuleInterop": true, // Ensures compatibility with CommonJS and ES modules
-    "module": "ESNext", // Ensures compatibility with modern module systems
+    "module": "commonjs", // Updated to commonjs for better compatibility
     "moduleResolution": "node", // Uses Node.js-style module resolution
     "resolveJsonModule": true, // Allows importing JSON files as modules
     "isolatedModules": true, // Ensures each file is treated as an isolated module

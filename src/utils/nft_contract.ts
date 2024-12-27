@@ -13,7 +13,12 @@ export interface NFTContract {
   isApprovedForAll(owner: string, operator: string): Promise<boolean>;
   transferFrom(from: string, to: string, tokenId: ethers.BigNumberish): Promise<ethers.ContractTransactionResponse>;
   mint(to: string, tokenId: ethers.BigNumberish): Promise<ethers.ContractTransactionResponse>;
-  mintWithMetadata(to: string, tokenId: ethers.BigNumberish, tokenURI: string): Promise<ethers.ContractTransactionResponse>;
+  mintWithMetadata(
+    to: string, 
+    tokenId: ethers.BigNumberish, 
+    tokenURI: string
+  ): Promise<ethers.ContractTransactionResponse>;
+  getAllTokensOfOwner(owner: string): Promise<ethers.BigNumberish[]>;
 }
 
 export function createNFTContract(address: string, provider: ethers.Provider | ethers.Signer): NFTContract {
@@ -31,6 +36,7 @@ export function createNFTContract(address: string, provider: ethers.Provider | e
     isApprovedForAll: (owner, operator) => contract.isApprovedForAll(owner, operator),
     transferFrom: (from, to, tokenId) => contract.transferFrom(from, to, tokenId),
     mint: (to, tokenId) => contract.mint(to, tokenId),
-    mintWithMetadata: (to, tokenId, tokenURI) => contract.mintWithMetadata(to, tokenId, tokenURI)
+    mintWithMetadata: (to, tokenId, tokenURI) => contract.mintWithMetadata(to, tokenId, tokenURI),
+    getAllTokensOfOwner: (owner) => contract.getAllTokensOfOwner(owner)
   };
 }

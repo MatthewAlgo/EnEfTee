@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wallet, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../context/authcontext'; // Adjust the import path as needed
+import { useAuth } from '../../../context/authcontext';
 
 interface HeaderProps {
     onMenuClick: () => void;
@@ -25,8 +25,6 @@ const Header = ({ onMenuClick }: HeaderProps) => {
             await connectWallet();
         }
     };
-
-    // Handle logo click to redirect to homepage
     const handleLogoClick = () => {
         router.push('/');
     };
@@ -43,18 +41,14 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                     </h1>
                 </div>
 
-                {/* Navigation */}
                 <nav className="hidden md:flex space-x-8">
                     <NavLink href="/explore" label="Explore" />
                     <NavLink href="/auctions" label="Live Auctions" />
                     <NavLink href="/create" label="Create" />
-                    <NavLink href="/collections" label="Collections" />
+                    <NavLink href="/my_nfts" label="My NFTs" />
                 </nav>
 
-                {/* Right Section */}
                 <div className="flex items-center space-x-4">
-
-                    {/* Connect Wallet Button */}
                     <button
                         onClick={handleWalletButtonClick}
                         disabled={isConnecting}
@@ -65,14 +59,8 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                         }`}
                     >
                         <Wallet className="w-4 h-4 mr-2" />
-                        {isAuthenticated
-                            ? `${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}`
-                            : isConnecting
-                            ? 'Connecting...'
-                            : 'Connect Wallet'}
+                        {isAuthenticated ? `${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}` : isConnecting ? 'Connecting...' : 'Connect Wallet'}
                     </button>
-
-                    {/* Mobile Menu Button */}
                     <button className="md:hidden p-2 hover:bg-purple-800/50 rounded-full transition duration-300">
                         <Menu className="w-6 h-6" />
                     </button>

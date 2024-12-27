@@ -18,8 +18,15 @@ interface InterfaceNFTAuction {
     event BidPlaced(uint256 indexed tokenId, address indexed bidder, uint256 amount);
     event AuctionEnded(uint256 indexed tokenId, address indexed winner, uint256 amount);
     event AuctionCancelled(uint256 indexed tokenId);
+    event CollectionWhitelistUpdated(address indexed collection, bool status);
 
-    function createAuction(uint256 tokenId, uint256 startingPrice, uint256 reservePrice, uint256 duration) external payable;
+    function createAuction(
+        uint256 tokenId,
+        uint256 startingPrice,
+        uint256 reservePrice,
+        uint256 duration
+    ) external payable;
+
     function placeBid(uint256 tokenId) external payable;
     function endAuction(uint256 tokenId) external;
     function cancelAuction(uint256 tokenId) external;

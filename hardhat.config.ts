@@ -10,7 +10,7 @@ if (!process.env.SEED_PHRASE) {
 
 const config = {
   solidity: {
-    version: "0.8.19", // Change to 0.8.19
+    version: "0.8.19",
     compilers: [
       {
         version: "0.8.19",
@@ -34,6 +34,20 @@ const config = {
       chainId: 31337,
     },
   },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts"
+  },
+  sourceDirs: [
+    "./contracts",
+    "./contracts/interfaces"
+  ],
+  env: {
+    NFT_CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS,
+    AUCTION_CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS
+  }
 };
 
 module.exports = config;

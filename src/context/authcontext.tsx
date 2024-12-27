@@ -12,8 +12,8 @@ interface AuthContextType {
   disconnectWallet: () => void;
   error: string | null;
   isConnecting: boolean;
-  provider: ethers.BrowserProvider | null; // Add provider to the context
-  signer: ethers.JsonRpcSigner | null; // Add signer to the context
+  provider: ethers.BrowserProvider | null; 
+  signer: ethers.JsonRpcSigner | null; 
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -49,7 +49,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   
-  // New state for provider and signer
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
 
@@ -90,7 +89,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const accounts = await newProvider.send("eth_requestAccounts", []);
       const account = accounts[0];
       
-      // Get signer
       const newSigner = await newProvider.getSigner();
       setSigner(newSigner);
 
@@ -102,7 +100,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setBalance(accountBalance);
       setIsAuthenticated(true);
 
-      // Persist state in localStorage
       localStorage.setItem('walletAddress', account);
       localStorage.setItem('chainId', network.chainId.toString());
     } catch (error: any) {
@@ -153,7 +150,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const accounts = await newProvider.listAccounts();
           if (accounts.length > 0 && accounts[0].address.toLowerCase() === savedAddress.toLowerCase()) {
-            // Get signer
             const newSigner = await newProvider.getSigner();
             setSigner(newSigner);
 
