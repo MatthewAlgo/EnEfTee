@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "./interfaces/InterfaceERC721.sol";
 import "./interfaces/Ownable.sol";
 import "./NFTRegistry.sol";
+import "./UserRecords.sol";
 
 contract NFT is InterfaceERC721, Ownable {
     string private _name;
@@ -16,13 +17,20 @@ contract NFT is InterfaceERC721, Ownable {
     mapping(uint256 => string) private _tokenURIs;
 
     NFTRegistry private _registry;
+    UserRecords private _userRecords;
 
     event TokenURISet(uint256 indexed tokenId, string uri);
 
-    constructor(string memory name_, string memory symbol_, address registryAddress) {
+    constructor(
+        string memory name_, 
+        string memory symbol_, 
+        address registryAddress,
+        address userRecordsAddress
+    ) {
         _name = name_;
         _symbol = symbol_;
         _registry = NFTRegistry(registryAddress);
+        _userRecords = UserRecords(userRecordsAddress);
     }
 
     function name() external view override returns (string memory) {
@@ -80,6 +88,8 @@ contract NFT is InterfaceERC721, Ownable {
         _balances[to] += 1;
         _owners[tokenId] = to;
 
+        _userRecords.recordTransaction(to, UserRecords.TransactionType.MINT, tokenId, 0, address(0), to, true);
+
         emit Transfer(address(0), to, tokenId);
     }
 
@@ -91,6 +101,8 @@ contract NFT is InterfaceERC721, Ownable {
         _balances[to] += 1;
         _owners[tokenId] = to;
         _tokenURIs[tokenId] = tokenURI_;
+
+        _userRecords.recordTransaction(to, UserRecords.TransactionType.MINT, tokenId, 0, address(0), to, true);
 
         emit TokenURISet(tokenId, tokenURI_);
         emit Transfer(address(0), to, tokenId);
@@ -105,6 +117,8 @@ contract NFT is InterfaceERC721, Ownable {
         _balances[from] -= 1;
         _balances[to] += 1;
         _owners[tokenId] = to;
+
+        _userRecords.recordTransaction(from, UserRecords.TransactionType.TRANSFER, tokenId, 0, from, to, true);
 
         emit Transfer(from, to, tokenId);
         _registry.transferNFT(address(this), from, to, tokenId);

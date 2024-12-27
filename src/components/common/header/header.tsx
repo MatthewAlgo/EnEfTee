@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Wallet, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/authcontext';
+import SideDrawer from '../sidedrawer/sidedrawer';
 
 interface HeaderProps {
     onMenuClick: () => void;
@@ -11,6 +12,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
     const router = useRouter();
     const [currentPath, setCurrentPath] = useState('');
     const { isAuthenticated, walletAddress, connectWallet, disconnectWallet, isConnecting } = useAuth();
+    const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -29,44 +31,62 @@ const Header = ({ onMenuClick }: HeaderProps) => {
         router.push('/');
     };
 
+    const toggleSideDrawer = () => {
+        setIsSideDrawerOpen(!isSideDrawerOpen);
+    };
+
     return (
-        <header className="bg-gradient-to-r from-gray-900 to-purple-900 text-white p-4 sticky top-0 z-50 backdrop-blur-sm bg-opacity-90">
-            <div className="container mx-auto flex justify-between items-center">
-                {/* Logo */}
-                <div className="flex items-center cursor-pointer" onClick={handleLogoClick}>
-                    <h1 className="text-3xl font-bold">
-                        <span className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-                            EnEfTee
-                        </span>
-                    </h1>
-                </div>
+        <>
+            <header className="bg-gradient-to-r from-gray-900 to-purple-900 text-white p-4 sticky top-0 z-50 backdrop-blur-sm bg-opacity-90">
+                <div className="container mx-auto flex justify-between items-center">
+                    {/* Logo */}
+                    <div className="flex items-center cursor-pointer" onClick={handleLogoClick}>
+                        <h1 className="text-3xl font-bold">
+                            <span className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+                                EnEfTee
+                            </span>
+                        </h1>
+                    </div>
 
-                <nav className="hidden md:flex space-x-8">
-                    <NavLink href="/explore" label="Explore" />
-                    <NavLink href="/auctions" label="Live Auctions" />
-                    <NavLink href="/create" label="Create" />
-                    <NavLink href="/my_nfts" label="My NFTs" />
-                </nav>
+                    <nav className="hidden md:flex space-x-8">
+                        <NavLink href="/explore" label="Explore" />
+                        <NavLink href="/auctions" label="Live Auctions" />
+                        <NavLink href="/create" label="Create" />
+                        <NavLink href="/my_nfts" label="My NFTs" />
+                        <NavLink href="/activity" label="Activity" />
+                    </nav>
 
-                <div className="flex items-center space-x-4">
-                    <button
-                        onClick={handleWalletButtonClick}
-                        disabled={isConnecting}
-                        className={`hidden md:flex items-center px-4 py-2 rounded-lg transition duration-300 ${
-                            isAuthenticated
-                                ? 'bg-purple-600 hover:bg-purple-700'
-                                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
-                        }`}
-                    >
-                        <Wallet className="w-4 h-4 mr-2" />
-                        {isAuthenticated ? `${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}` : isConnecting ? 'Connecting...' : 'Connect Wallet'}
-                    </button>
-                    <button className="md:hidden p-2 hover:bg-purple-800/50 rounded-full transition duration-300">
-                        <Menu className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center space-x-4">
+                        <button
+                            onClick={handleWalletButtonClick}
+                            disabled={isConnecting}
+                            className={`hidden md:flex items-center px-4 py-2 rounded-lg transition duration-300 ${
+                                isAuthenticated
+                                    ? 'bg-purple-600 hover:bg-purple-700'
+                                    : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                            }`}
+                        >
+                            <Wallet className="w-4 h-4 mr-2" />
+                            {isAuthenticated ? `${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}` : isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                        </button>
+                        <button 
+                            onClick={toggleSideDrawer} 
+                            className="md:hidden p-2 hover:bg-purple-800/50 rounded-full transition duration-300"
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </header>
+            </header>
+            <SideDrawer 
+                isOpen={isSideDrawerOpen} 
+                onClose={() => setIsSideDrawerOpen(false)}
+                isAuthenticated={isAuthenticated}
+                walletAddress={walletAddress ?? undefined}
+                isConnecting={isConnecting}
+                onWalletClick={handleWalletButtonClick}
+            />
+        </>
     );
 };
 

@@ -18,7 +18,7 @@ export default function Home() {
 }
 
 function MainContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, walletAddress, connectWallet, disconnectWallet, isConnecting } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const router = useRouter();
 
@@ -28,6 +28,14 @@ function MainContent() {
     }
   }, [isAuthenticated, router]);
 
+  const handleWalletClick = async () => {
+    if (isAuthenticated) {
+      disconnectWallet();
+    } else {
+      await connectWallet();
+    }
+  };
+
   if (isAuthenticated) {
     return null; // Return null while redirecting
   }
@@ -35,7 +43,14 @@ function MainContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-purple-900">
       <Header onMenuClick={() => setIsDrawerOpen(true)} />
-      <SideDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
+      <SideDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)}
+        isAuthenticated={isAuthenticated}
+        walletAddress={walletAddress ?? undefined}
+        isConnecting={isConnecting}
+        onWalletClick={handleWalletClick}
+      />
       <Homepage />
       <Footer />
     </div>

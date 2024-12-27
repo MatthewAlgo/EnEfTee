@@ -6,9 +6,11 @@ import "./interfaces/InterfaceERC721.sol";
 import "./NFT.sol";
 import "./interfaces/Pausable.sol";
 import "./interfaces/Ownable.sol";
+import "./UserRecords.sol";
 
 contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
     InterfaceERC721 private _nftContract;
+    UserRecords private _userRecords;
     
     mapping(uint256 => Auction) private _auctions;
     mapping(address => uint256[]) private _userAuctions;
@@ -35,7 +37,8 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         uint256 _bidFee,
         uint256 _finalizePercentage,
         uint256 _minDuration,
-        uint256 _maxDuration
+        uint256 _maxDuration,
+        address userRecordsAddress
     ) {
         require(nftContractAddress != address(0), "Invalid NFT contract address");
         require(_minDuration > 0 && _maxDuration > _minDuration, "Invalid duration parameters");
@@ -47,6 +50,7 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         finalizePercentage = _finalizePercentage;
         minAuctionDuration = _minDuration;
         maxAuctionDuration = _maxDuration;
+        _userRecords = UserRecords(userRecordsAddress);
     }
 
     function whitelistCollection(address collection, bool status) external onlyOwner {
@@ -88,6 +92,16 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         _activeAuctions.push(tokenId);
         _nftContract.transferFrom(msg.sender, address(this), tokenId);
 
+        _userRecords.recordTransaction(
+            msg.sender,
+            UserRecords.TransactionType.CREATE_AUCTION,
+            tokenId,
+            startingPrice,
+            msg.sender,
+            address(this),
+            true
+        );
+
         emit AuctionCreated(tokenId, msg.sender, startingPrice, duration);
     }
 
@@ -113,6 +127,16 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
 
         auction.highestBidder = msg.sender;
         auction.highestBid = msg.value - bidFee;
+
+        _userRecords.recordTransaction(
+            msg.sender,
+            UserRecords.TransactionType.BID,
+            tokenId,
+            msg.value,
+            msg.sender,
+            address(this),
+            true
+        );
 
         emit BidPlaced(tokenId, msg.sender, msg.value);
     }
@@ -141,6 +165,16 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
             _nftContract.transferFrom(address(this), auction.highestBidder, auction.tokenId);
             payable(auction.seller).transfer(sellerAmount);
             payable(owner()).transfer(finalFee);
+
+            _userRecords.recordTransaction(
+                auction.highestBidder,
+                UserRecords.TransactionType.END_AUCTION,
+                auction.tokenId,
+                auction.highestBid,
+                address(this),
+                auction.highestBidder,
+                true
+            );
 
             emit AuctionEnded(auction.tokenId, auction.highestBidder, auction.highestBid);
         } else {
