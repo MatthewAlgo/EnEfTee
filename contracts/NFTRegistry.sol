@@ -7,6 +7,8 @@ import "./interfaces/InterfaceERC721.sol";
 contract NFTRegistry is Ownable {
     mapping(address => uint256[]) private _userNFTs;
     mapping(address => mapping(uint256 => bool)) private _nftCollections;
+    uint256[] private _allTokenIds;
+    mapping(uint256 => address) private _tokenCollections;
     event NFTRegistered(address indexed collection, address indexed owner, uint256 tokenId);
     event NFTTransferred(address indexed collection, address indexed from, address indexed to, uint256 tokenId);
     
@@ -14,6 +16,8 @@ contract NFTRegistry is Ownable {
         require(msg.sender == collection, "Only NFT contract can register");
         _userNFTs[owner].push(tokenId);
         _nftCollections[collection][tokenId] = true;
+        _allTokenIds.push(tokenId);
+        _tokenCollections[tokenId] = collection;
         emit NFTRegistered(collection, owner, tokenId);
     }
     
@@ -25,7 +29,23 @@ contract NFTRegistry is Ownable {
     }
     
     function getUserNFTs(address user) external view returns (uint256[] memory) {
-        return _userNFTs[user];
+        uint256[] memory result = new uint256[](_userNFTs[user].length);
+        for(uint256 i = 0; i < _userNFTs[user].length; i++) {
+            result[i] = _userNFTs[user][i];
+        }
+        return result;
+    }
+    
+    function getAllNFTs() external view returns (uint256[] memory) {
+        uint256[] memory result = new uint256[](_allTokenIds.length);
+        for(uint256 i = 0; i < _allTokenIds.length; i++) {
+            result[i] = _allTokenIds[i];
+        }
+        return result;
+    }
+    
+    function getNFTCollection(uint256 tokenId) external view returns (address) {
+        return _tokenCollections[tokenId];
     }
     
     function _removeNFTFromOwner(address owner, uint256 tokenId) private {

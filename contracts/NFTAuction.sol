@@ -21,7 +21,7 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
     uint256 public finalizePercentage;
     uint256 public minAuctionDuration;
     uint256 public maxAuctionDuration;
-    uint256 public minBidIncrement = 500; // 5% in basis points
+    uint256 public minBidIncrement = 500; 
     
     event CreationFeeUpdated(uint256 newFee);
     event BidFeeUpdated(uint256 newFee);
@@ -39,7 +39,7 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
     ) {
         require(nftContractAddress != address(0), "Invalid NFT contract address");
         require(_minDuration > 0 && _maxDuration > _minDuration, "Invalid duration parameters");
-        require(_finalizePercentage <= 10000, "Invalid percentage"); // Max 100% (10000 basis points)
+        require(_finalizePercentage <= 10000, "Invalid percentage");
         
         _nftContract = InterfaceERC721(nftContractAddress);
         creationFee = _creationFee;
@@ -94,9 +94,13 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
     function placeBid(uint256 tokenId) external override payable whenNotPaused {
         Auction storage auction = _auctions[tokenId];
         require(auction.active, "Auction is not active");
-        require(block.timestamp < auction.startTime + auction.duration, "Auction has ended");
-        require(msg.sender != auction.seller, "Seller cannot bid");
         
+        // Check if auction has ended and finalize it if needed
+        if (block.timestamp >= auction.startTime + auction.duration) {
+            _finalizeAuction(auction);
+            revert("Auction has ended");
+        }
+
         uint256 minBidAmount = auction.highestBid == 0 
             ? auction.startingPrice 
             : auction.highestBid + ((auction.highestBid * minBidIncrement) / 10000);
@@ -113,6 +117,45 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         emit BidPlaced(tokenId, msg.sender, msg.value);
     }
 
+    // New function to check and finalize expired auctions
+    function finalizeExpiredAuction(uint256 tokenId) external whenNotPaused {
+        Auction storage auction = _auctions[tokenId];
+        require(auction.active, "Auction is not active");
+        require(block.timestamp >= auction.startTime + auction.duration, "Auction still ongoing");
+        
+        _finalizeAuction(auction);
+    }
+
+    // New internal function to handle auction finalization
+    function _finalizeAuction(Auction storage auction) internal {
+        require(auction.active, "Auction is not active");
+        
+        auction.active = false;
+        _removeFromActiveAuctions(auction.tokenId);
+
+        if (auction.highestBid >= auction.reservePrice && auction.highestBidder != address(0)) {
+            // Transfer NFT to highest bidder
+            uint256 finalFee = (auction.highestBid * finalizePercentage) / 10000;
+            uint256 sellerAmount = auction.highestBid - finalFee;
+
+            _nftContract.transferFrom(address(this), auction.highestBidder, auction.tokenId);
+            payable(auction.seller).transfer(sellerAmount);
+            payable(owner()).transfer(finalFee);
+
+            emit AuctionEnded(auction.tokenId, auction.highestBidder, auction.highestBid);
+        } else {
+            // Return NFT to seller if no valid bids
+            _nftContract.transferFrom(address(this), auction.seller, auction.tokenId);
+            if (auction.highestBidder != address(0)) {
+                payable(auction.highestBidder).transfer(auction.highestBid);
+            }
+            emit AuctionCancelled(auction.tokenId);
+        }
+
+        _cleanupAuction(auction.tokenId);
+    }
+
+    // Modify endAuction to use _finalizeAuction
     function endAuction(uint256 tokenId) external override whenNotPaused {
         Auction storage auction = _auctions[tokenId];
         require(auction.active, "Auction is not active");
@@ -123,27 +166,7 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
             "Auction cannot be ended yet"
         );
 
-        auction.active = false;
-        _removeFromActiveAuctions(tokenId);
-
-        if (auction.highestBid >= auction.reservePrice) {
-            uint256 finalFee = (auction.highestBid * finalizePercentage) / 10000;
-            uint256 sellerAmount = auction.highestBid - finalFee;
-
-            _nftContract.transferFrom(address(this), auction.highestBidder, tokenId);
-            payable(auction.seller).transfer(sellerAmount);
-            payable(owner()).transfer(finalFee);
-
-            emit AuctionEnded(tokenId, auction.highestBidder, auction.highestBid);
-        } else {
-            _nftContract.transferFrom(address(this), auction.seller, tokenId);
-            if (auction.highestBidder != address(0)) {
-                payable(auction.highestBidder).transfer(auction.highestBid);
-            }
-            emit AuctionCancelled(tokenId);
-        }
-
-        _cleanupAuction(tokenId);
+        _finalizeAuction(auction);
     }
 
     function updateAuctionParameters(
