@@ -63,6 +63,7 @@ const SideDrawer: React.FC<SideDrawerProps> = ({
           <NavItem label="Live Auctions" href="/auctions" />
           <NavItem label="Create" href="/create" />
           <NavItem label="My NFTs" href="/my_nfts" />
+          <NavItem label="Approvals" href="/approvals" />
           <NavItem label="Activity" href="/activity" />
         </nav>
       </div>

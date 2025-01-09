@@ -5,8 +5,11 @@ if (!process.env.NEXT_PUBLIC_USER_RECORDS_ADDRESS) {
   throw new Error("USER_RECORDS_ADDRESS is not defined in environment variables");
 }
 
+if (!process.env.NEXT_PUBLIC_NFT_AUCTION_REGISTRY_ADDRESS) {
+  throw new Error("NFT_AUCTION_REGISTRY_ADDRESS is not defined in environment variables");
+}
+
 const NFTAuctionModule = buildModule("NFTAuctionModule", (m) => {
-  
   const nftAddress = m.getParameter(
     "nftAddress", 
     process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || ""
@@ -14,6 +17,10 @@ const NFTAuctionModule = buildModule("NFTAuctionModule", (m) => {
   const userRecordsAddress = m.getParameter(
     "userRecordsAddress", 
     process.env.NEXT_PUBLIC_USER_RECORDS_ADDRESS || ""
+  );
+  const registryAddress = m.getParameter(
+    "registryAddress",
+    process.env.NEXT_PUBLIC_NFT_AUCTION_REGISTRY_ADDRESS || ""
   );
 
   const creationFee = ethers.parseEther("0.1").toString(); // 0.1 ETH
@@ -29,7 +36,8 @@ const NFTAuctionModule = buildModule("NFTAuctionModule", (m) => {
     finalizePercentage,
     minDuration,
     maxDuration,
-    userRecordsAddress
+    userRecordsAddress,
+    registryAddress
   ]);
 
   // Only whitelist collection if nftAddress is provided
