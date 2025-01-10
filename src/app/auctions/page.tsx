@@ -33,44 +33,73 @@ export default function Auctions() {
 }
 
 function AuctionsContent() {
-  const { isAuthenticated, isConnecting, provider } = useAuth();
+  const { provider, isAuthenticated, isConnecting } = useAuth();
   const [auctions, setAuctions] = useState<AuctionNFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAuction, setSelectedAuction] = useState<AuctionNFT | null>(null);
   const [bidAmount, setBidAmount] = useState('');
+  const [cancellingAuction, setCancellingAuction] = useState<string | null>(null);
+  const [userAddress, setUserAddress] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<{[key: string]: string}>({});
-
-  const finalizeAuction = async (tokenId: string) => {
-    try {
-      const signer = await provider!.getSigner();
-      const auctionContract = createNFTAuctionContract(AUCTION_CONTRACT_ADDRESS, signer);
-      await auctionContract.finalizeExpiredAuction(tokenId);
-      await loadAuctions();
-    } catch (error) {
-      console.error('Error finalizing auction:', error);
-    }
-  };
 
   useEffect(() => {
     if (isAuthenticated && provider) {
+      loadUserAddress();
       loadAuctions();
+      const interval = setInterval(loadAuctions, 30000);
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated, provider]);
 
+  const formatTimeLeft = (diff: number): string => {
+    if (diff <= 0) return 'Ended';
+
+    const days = Math.floor(diff / 86400);
+    const hours = Math.floor((diff % 86400) / 3600);
+    const minutes = Math.floor((diff % 3600) / 60);
+    const seconds = diff % 60;
+
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0) parts.push(`${seconds}s`);
+
+    return parts.join(' ');
+  };
+
+  const getTimeLeft = (auction: AuctionNFT): string => {
+    if (!auction?.tokenId || !auction?.endTime) return 'Invalid';
+    
+    const now = Math.floor(Date.now() / 1000);
+    const endTime = Number(auction.endTime);
+    const diff = endTime - now;
+    
+    if (diff <= 0) {
+      if (auction.active && auction.highestBid > 0n) {
+        return 'Ended, waiting for approval';
+      }
+      return 'Ended';
+    }
+    
+    return formatTimeLeft(diff);
+  };
+
   useEffect(() => {
     const timer = setInterval(() => {
-      const now = BigInt(Math.floor(Date.now() / 1000));
+      const now = Math.floor(Date.now() / 1000);
       const newTimeLeft: {[key: string]: string} = {};
       
       auctions.forEach(auction => {
-        if (auction.endTime > now) {
-          const diff = Number(auction.endTime - now);
-          const hours = Math.floor(diff / 3600);
-          const minutes = Math.floor((diff % 3600) / 60);
-          const seconds = diff % 60;
-          newTimeLeft[auction.tokenId] = `${hours}h ${minutes}m ${seconds}s`;
+        if (!auction?.endTime) return;
+        
+        const endTime = Number(auction.endTime);
+        const diff = endTime - now;
+        
+        if (diff <= 0) {
+          newTimeLeft[auction.tokenId] = auction.active ? 'Ended, waiting for approval' : 'Ended';
         } else {
-          newTimeLeft[auction.tokenId] = 'Ended';
+          newTimeLeft[auction.tokenId] = formatTimeLeft(diff);
         }
       });
       
@@ -80,20 +109,13 @@ function AuctionsContent() {
     return () => clearInterval(timer);
   }, [auctions]);
 
-  useEffect(() => {
-    const checkAndFinalizeExpiredAuctions = async () => {
-      const now = BigInt(Math.floor(Date.now() / 1000));
-      auctions.forEach(async (auction) => {
-        if (auction.active && auction.endTime <= now) {
-          await finalizeAuction(auction.tokenId);
-        }
-      });
-    };
-
-    if (auctions.length > 0) {
-      checkAndFinalizeExpiredAuctions();
+  const loadUserAddress = async () => {
+    if (provider && isAuthenticated) {
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      setUserAddress(address);
     }
-  }, [auctions]);
+  };
 
   const loadAuctions = async () => {
     try {
@@ -103,6 +125,7 @@ function AuctionsContent() {
       const nftContract = createNFTContract(NFT_CONTRACT_ADDRESS, signer);
 
       const activeAuctions = await auctionContract.getAllActiveAuctions();
+      console.log('Active auctions:', activeAuctions);
       
       const auctionPromises = activeAuctions.map(async (auction) => {
         const uri = await nftContract.tokenURI(auction.tokenId);
@@ -166,6 +189,38 @@ function AuctionsContent() {
     }
   };
 
+  const handleCancelAuction = async (tokenId: string) => {
+    if (!provider || !isAuthenticated) return;
+    
+    try {
+      setCancellingAuction(tokenId);
+      const signer = await provider.getSigner();
+      const contract = createNFTAuctionContract(AUCTION_CONTRACT_ADDRESS, signer);
+      
+      const tx = await contract.cancelAuction(tokenId);
+      await tx.wait();
+      
+      // Refresh auctions after cancellation
+      loadAuctions();
+    } catch (error) {
+      console.error('Error cancelling auction:', error);
+    } finally {
+      setCancellingAuction(null);
+    }
+  };
+
+  const isAuctionEnded = (auction: AuctionNFT): boolean => {
+    const now = Math.floor(Date.now() / 1000);
+    const endTime = Number(auction.endTime);
+    return endTime <= now;
+  };
+
+  const canCancelAuction = (auction: AuctionNFT): boolean => {
+    return !isAuctionEnded(auction) && // auction hasn't ended
+           auction.highestBid === 0n && // no bids placed
+           auction.seller.toLowerCase() === userAddress?.toLowerCase(); // user is the seller
+  };
+
   if (isConnecting) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-purple-900">
@@ -200,27 +255,50 @@ function AuctionsContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {auctions.map((auction) => (
               <div key={auction.tokenId} className="bg-gray-800/30 rounded-xl p-4">
-                {auction.image && (
-                  <img src={auction.image} alt={auction.name} className="w-full h-48 object-cover rounded-lg mb-4" />
-                )}
+                <div className="relative">
+                  {auction.image && (
+                    <img src={auction.image} alt={auction.name} className="w-full h-48 object-cover rounded-lg mb-4" />
+                  )}
+                  <div className="absolute bottom-4 right-4 bg-black/70 px-3 py-1 rounded-lg">
+                    <p className="text-purple-400 text-sm">
+                      Min Bid: {ethers.formatEther(auction.startingPrice)} ETH
+                    </p>
+                  </div>
+                </div>
                 <h3 className="text-white text-xl font-bold">{auction.name}</h3>
                 <p className="text-gray-400 mt-2">{auction.description}</p>
                 <div className="mt-4 space-y-2">
                   <p className="text-purple-400">Current Bid: {ethers.formatEther(auction.highestBid)} ETH</p>
-                  <p className="text-purple-400">Time Left: {timeLeft[auction.tokenId]}</p>
+                  <p className="text-purple-400">Time Left: {getTimeLeft(auction)}</p>
                   <p className="text-gray-400">Seller: {auction.seller.slice(0, 6)}...{auction.seller.slice(-4)}</p>
                   {auction.highestBidder !== ethers.ZeroAddress && (
-                    <p className="text-gray-400">
-                      Highest Bidder: {auction.highestBidder.slice(0, 6)}...{auction.highestBidder.slice(-4)}
-                    </p>
+                    <div className="flex justify-between items-center">
+                      <p className="text-gray-400">
+                        Highest Bidder: {auction.highestBidder.slice(0, 6)}...{auction.highestBidder.slice(-4)}
+                      </p>
+                      <p className="text-purple-400 font-medium">
+                        {ethers.formatEther(auction.highestBid)} ETH
+                      </p>
+                    </div>
                   )}
                 </div>
-                <button
-                  onClick={() => setSelectedAuction(auction)}
-                  className="mt-4 w-full px-4 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600"
-                >
-                  Place Bid
-                </button>
+                {canCancelAuction(auction) && (
+                  <button
+                    onClick={() => handleCancelAuction(auction.tokenId)}
+                    disabled={cancellingAuction === auction.tokenId}
+                    className="mt-4 w-full px-4 py-2 bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 disabled:bg-red-400"
+                  >
+                    {cancellingAuction === auction.tokenId ? 'Cancelling...' : 'Cancel Auction'}
+                  </button>
+                )}
+                {auction.seller.toLowerCase() !== userAddress?.toLowerCase() && (
+                  <button
+                    onClick={() => setSelectedAuction(auction)}
+                    className="mt-4 w-full px-4 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600"
+                  >
+                    Place Bid
+                  </button>
+                )}
               </div>
             ))}
           </div>

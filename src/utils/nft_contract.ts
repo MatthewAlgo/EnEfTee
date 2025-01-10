@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, Signer } from 'ethers';
 import NFTContractABI from '../../artifacts/contracts/NFT.sol/NFT.json';
 
 export interface NFTContract {
@@ -36,7 +36,7 @@ export function createNFTContract(address: string, provider: ethers.Provider | e
     isApprovedForAll: (owner, operator) => contract.isApprovedForAll(owner, operator),
     transferFrom: (from, to, tokenId) => contract.transferFrom(from, to, tokenId),
     mint: (to, tokenId) => contract.mint(to, tokenId),
-    mintWithMetadata: (to, tokenId, tokenURI) => contract.mintWithMetadata(to, tokenId, tokenURI),
+    mintWithMetadata: async (to: string, tokenId: ethers.BigNumberish, tokenURI: string) => contract.mintWithMetadata(to, tokenId, tokenURI),
     getAllTokensOfOwner: (owner) => contract.getAllTokensOfOwner(owner)
   };
 }

@@ -13,6 +13,16 @@ export interface Auction {
   highestBid: bigint;
 }
 
+// Add utility function for filtering expired auctions
+export function filterExpiredAuctions(auctions: Auction[], userAddress: string): Auction[] {
+  const currentTime = Math.floor(Date.now() / 1000);
+  return auctions.filter(auction => 
+    auction.active && 
+    auction.seller.toLowerCase() === userAddress.toLowerCase() &&
+    Number(auction.startTime) + Number(auction.duration) <= currentTime
+  );
+}
+
 export interface NFTAuctionContract {
   creationFee(): Promise<bigint>;
   bidFee(): Promise<bigint>;
@@ -20,11 +30,7 @@ export interface NFTAuctionContract {
   minBidIncrement(): Promise<bigint>;
   minAuctionDuration(): Promise<bigint>;
   maxAuctionDuration(): Promise<bigint>;
-  whitelistedCollections(collection: string): Promise<boolean>;
-  whitelistCollection(
-    collection: string,
-    status: boolean
-  ): Promise<ethers.ContractTransactionResponse>;
+  
   createAuction(
     tokenId: ethers.BigNumberish,
     startingPrice: ethers.BigNumberish,
@@ -40,12 +46,6 @@ export interface NFTAuctionContract {
   
   endAuction(
     tokenId: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
-  
-  updateAuctionParameters(
-    tokenId: ethers.BigNumberish,
-    newReservePrice: ethers.BigNumberish,
-    newDuration: ethers.BigNumberish
   ): Promise<ethers.ContractTransactionResponse>;
   
   getAuction(
@@ -88,10 +88,24 @@ export interface NFTAuctionContract {
     tokenId: ethers.BigNumberish
   ): Promise<ethers.ContractTransactionResponse>;
 
-  // Add new method for finalizing expired auctions
   finalizeExpiredAuction(
     tokenId: ethers.BigNumberish
   ): Promise<ethers.ContractTransactionResponse>;
+
+  whitelistCollection(
+    collection: string,
+    status: boolean
+  ): Promise<ethers.ContractTransactionResponse>;
+
+  updateAuctionParameters(
+    tokenId: ethers.BigNumberish,
+    newReservePrice: ethers.BigNumberish,
+    newDuration: ethers.BigNumberish
+  ): Promise<ethers.ContractTransactionResponse>;
+
+  getUserExpiredAuctions(
+    user: string
+  ): Promise<Auction[]>;
 }
 
 export function createNFTAuctionContract(
@@ -111,27 +125,37 @@ export function createNFTAuctionContract(
     minBidIncrement: () => contract.minBidIncrement(),
     minAuctionDuration: () => contract.minAuctionDuration(),
     maxAuctionDuration: () => contract.maxAuctionDuration(),
-    whitelistedCollections: (collection) => contract.whitelistedCollections(collection),
-    whitelistCollection: (collection, status) => contract.whitelistCollection(collection, status),
     
     createAuction: (tokenId, startingPrice, reservePrice, duration, overrides) =>
       contract.createAuction(tokenId, startingPrice, reservePrice, duration, overrides),
     
-    placeBid: (tokenId, overrides) => contract.placeBid(tokenId, overrides),
-    endAuction: (tokenId) => contract.endAuction(tokenId),
+    placeBid: (tokenId, overrides) => 
+      contract.placeBid(tokenId, overrides),
     
-    updateAuctionParameters: (tokenId, newReservePrice, newDuration) =>
-      contract.updateAuctionParameters(tokenId, newReservePrice, newDuration),
+    endAuction: (tokenId) => 
+      contract.endAuction(tokenId),
     
-    getAuction: (tokenId) => contract.getAuction(tokenId),
-    getUserAuctions: (user) => contract.getUserAuctions(user),
-    getAllActiveAuctions: () => contract.getAllActiveAuctions(),
+    getAuction: (tokenId) => 
+      contract.getAuction(tokenId),
     
-    updateCreationFee: (newFee) => contract.updateCreationFee(newFee),
-    updateBidFee: (newFee) => contract.updateBidFee(newFee),
-    updateFinalizePercentage: (newPercentage) => contract.updateFinalizePercentage(newPercentage),
-    updateMinBidIncrement: (newIncrement) => contract.updateMinBidIncrement(newIncrement),
-
+    getUserAuctions: (user) => 
+      contract.getUserAuctions(user),
+    
+    getAllActiveAuctions: () => 
+      contract.getAllActiveAuctions(),
+    
+    updateCreationFee: (newFee) => 
+      contract.updateCreationFee(newFee),
+    
+    updateBidFee: (newFee) => 
+      contract.updateBidFee(newFee),
+    
+    updateFinalizePercentage: (newPercentage) => 
+      contract.updateFinalizePercentage(newPercentage),
+    
+    updateMinBidIncrement: (newIncrement) => 
+      contract.updateMinBidIncrement(newIncrement),
+    
     emergencyWithdraw: (recipient, amount) => 
       contract.emergencyWithdraw(recipient, amount),
     
@@ -140,8 +164,24 @@ export function createNFTAuctionContract(
     
     cancelAuction: (tokenId) => 
       contract.cancelAuction(tokenId),
-
+    
     finalizeExpiredAuction: (tokenId) => 
       contract.finalizeExpiredAuction(tokenId),
+    
+    whitelistCollection: (collection, status) => 
+      contract.whitelistCollection(collection, status),
+    
+    updateAuctionParameters: (tokenId, newReservePrice, newDuration) =>
+      contract.updateAuctionParameters(tokenId, newReservePrice, newDuration),
+    
+    getUserExpiredAuctions: async (user: string) => {
+      try {
+        const result = await contract.getUserAuctions(user);
+        return filterExpiredAuctions(result, user);
+      } catch (error) {
+        console.error('Error getting expired auctions:', error);
+        return [];
+      }
+    }
   };
 }

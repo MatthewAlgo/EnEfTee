@@ -7,16 +7,12 @@ import "./NFT.sol";
 import "./interfaces/Pausable.sol";
 import "./interfaces/Ownable.sol";
 import "./UserRecords.sol";
+import "./NFTAuctionRegistry.sol";
 
 contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
     InterfaceERC721 private _nftContract;
     UserRecords private _userRecords;
-    
-    mapping(uint256 => Auction) private _auctions;
-    mapping(address => uint256[]) private _userAuctions;
-    mapping(address => bool) public whitelistedCollections;
-    
-    uint256[] private _activeAuctions;
+    NFTAuctionRegistry private _registry;
     
     uint256 public creationFee;
     uint256 public bidFee;
@@ -38,13 +34,15 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         uint256 _finalizePercentage,
         uint256 _minDuration,
         uint256 _maxDuration,
-        address userRecordsAddress
+        address userRecordsAddress,
+        address registryAddress
     ) {
         require(nftContractAddress != address(0), "Invalid NFT contract address");
         require(_minDuration > 0 && _maxDuration > _minDuration, "Invalid duration parameters");
         require(_finalizePercentage <= 10000, "Invalid percentage");
         
         _nftContract = InterfaceERC721(nftContractAddress);
+        _registry = NFTAuctionRegistry(registryAddress);
         creationFee = _creationFee;
         bidFee = _bidFee;
         finalizePercentage = _finalizePercentage;
@@ -53,19 +51,12 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         _userRecords = UserRecords(userRecordsAddress);
     }
 
-    function whitelistCollection(address collection, bool status) external onlyOwner {
-        require(collection != address(0), "Invalid collection address");
-        whitelistedCollections[collection] = status;
-        emit CollectionWhitelistUpdated(collection, status);
-    }
-
     function createAuction(
         uint256 tokenId,
         uint256 startingPrice,
         uint256 reservePrice,
         uint256 duration
     ) external payable override whenNotPaused {
-        require(whitelistedCollections[address(_nftContract)], "Collection not whitelisted");
         require(msg.value >= creationFee, "Insufficient creation fee");
         require(duration >= minAuctionDuration && duration <= maxAuctionDuration, "Invalid auction duration");
         require(startingPrice > 0, "Starting price must be greater than 0");
@@ -73,24 +64,15 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         require(_nftContract.ownerOf(tokenId) == msg.sender, "Caller is not token owner");
         require(_nftContract.getApproved(tokenId) == address(this), "Contract not approved");
 
-        Auction storage auction = _auctions[tokenId];
-        require(!auction.active, "Auction already exists");
-
-        _auctions[tokenId] = Auction({
-            seller: msg.sender,
-            tokenId: tokenId,
-            startingPrice: startingPrice,
-            reservePrice: reservePrice,
-            duration: duration,
-            startTime: block.timestamp,
-            active: true,
-            highestBidder: address(0),
-            highestBid: 0
-        });
-
-        _userAuctions[msg.sender].push(tokenId);
-        _activeAuctions.push(tokenId);
         _nftContract.transferFrom(msg.sender, address(this), tokenId);
+        
+        _registry.registerAuction(
+            tokenId,
+            msg.sender,
+            startingPrice,
+            reservePrice,
+            duration
+        );
 
         _userRecords.recordTransaction(
             msg.sender,
@@ -106,15 +88,10 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
     }
 
     function placeBid(uint256 tokenId) external override payable whenNotPaused {
-        Auction storage auction = _auctions[tokenId];
+        Auction memory auction = _registry.getAuction(tokenId);
         require(auction.active, "Auction is not active");
-        
-        // Check if auction has ended and finalize it if needed
-        if (block.timestamp >= auction.startTime + auction.duration) {
-            _finalizeAuction(auction);
-            revert("Auction has ended");
-        }
-
+        require(block.timestamp < auction.startTime + auction.duration, "Auction has ended");
+            
         uint256 minBidAmount = auction.highestBid == 0 
             ? auction.startingPrice 
             : auction.highestBid + ((auction.highestBid * minBidIncrement) / 10000);
@@ -125,8 +102,7 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
             payable(auction.highestBidder).transfer(auction.highestBid);
         }
 
-        auction.highestBidder = msg.sender;
-        auction.highestBid = msg.value - bidFee;
+        _registry.updateAuctionBid(tokenId, msg.sender, msg.value - bidFee);
 
         _userRecords.recordTransaction(
             msg.sender,
@@ -143,7 +119,7 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
 
     // New function to check and finalize expired auctions
     function finalizeExpiredAuction(uint256 tokenId) external whenNotPaused {
-        Auction storage auction = _auctions[tokenId];
+        Auction memory auction = _registry.getAuction(tokenId);
         require(auction.active, "Auction is not active");
         require(block.timestamp >= auction.startTime + auction.duration, "Auction still ongoing");
         
@@ -151,14 +127,8 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
     }
 
     // New internal function to handle auction finalization
-    function _finalizeAuction(Auction storage auction) internal {
-        require(auction.active, "Auction is not active");
-        
-        auction.active = false;
-        _removeFromActiveAuctions(auction.tokenId);
-
+    function _finalizeAuction(Auction memory auction) internal {
         if (auction.highestBid >= auction.reservePrice && auction.highestBidder != address(0)) {
-            // Transfer NFT to highest bidder
             uint256 finalFee = (auction.highestBid * finalizePercentage) / 10000;
             uint256 sellerAmount = auction.highestBid - finalFee;
 
@@ -178,7 +148,6 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
 
             emit AuctionEnded(auction.tokenId, auction.highestBidder, auction.highestBid);
         } else {
-            // Return NFT to seller if no valid bids
             _nftContract.transferFrom(address(this), auction.seller, auction.tokenId);
             if (auction.highestBidder != address(0)) {
                 payable(auction.highestBidder).transfer(auction.highestBid);
@@ -186,12 +155,13 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
             emit AuctionCancelled(auction.tokenId);
         }
 
-        _cleanupAuction(auction.tokenId);
+        // Clean up the auction completely
+        _registry.deactivateAuction(auction.tokenId);
     }
 
     // Modify endAuction to use _finalizeAuction
     function endAuction(uint256 tokenId) external override whenNotPaused {
-        Auction storage auction = _auctions[tokenId];
+        Auction memory auction = _registry.getAuction(tokenId);
         require(auction.active, "Auction is not active");
         require(
             block.timestamp >= auction.startTime + auction.duration ||
@@ -208,51 +178,39 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         uint256 newReservePrice,
         uint256 newDuration
     ) external whenNotPaused {
-        Auction storage auction = _auctions[tokenId];
+        Auction memory auction = _registry.getAuction(tokenId);
         require(auction.active, "Auction is not active");
         require(msg.sender == auction.seller, "Only seller can update parameters");
         require(auction.highestBid == 0, "Cannot update after bids received");
         require(newDuration >= minAuctionDuration && newDuration <= maxAuctionDuration, "Invalid duration");
         require(newReservePrice >= auction.startingPrice, "Reserve price must be >= starting price");
 
-        auction.reservePrice = newReservePrice;
-        auction.duration = newDuration;
+        _registry.updateAuctionParameters(tokenId, newReservePrice, newDuration);
 
         emit AuctionParametersUpdated(tokenId, newReservePrice, newDuration);
     }
 
     function getAllActiveAuctions() external view returns (Auction[] memory) {
-        Auction[] memory activeAuctions = new Auction[](_activeAuctions.length);
-        for (uint256 i = 0; i < _activeAuctions.length; i++) {
-            activeAuctions[i] = _auctions[_activeAuctions[i]];
-        }
-        return activeAuctions;
-    }
-
-    function _removeFromActiveAuctions(uint256 tokenId) internal {
-        for (uint256 i = 0; i < _activeAuctions.length; i++) {
-            if (_activeAuctions[i] == tokenId) {
-                _activeAuctions[i] = _activeAuctions[_activeAuctions.length - 1];
-                _activeAuctions.pop();
-                break;
-            }
-        }
+        return _registry.getAllActiveAuctions();
     }
 
     function cancelAuction(uint256 tokenId) external override whenNotPaused {
-        Auction storage auction = _auctions[tokenId];
-        require(auction.active, "Auction is not active");
+        Auction memory auction = _registry.getAuction(tokenId);
+        require(auction.active, "Auction not active");
         require(msg.sender == auction.seller || msg.sender == owner(), "Not authorized");
         require(auction.highestBid == 0, "Cannot cancel auction with bids");
 
-        auction.active = false;
-        _removeFromActiveAuctions(tokenId);
+        // First transfer the NFT back
         _nftContract.transferFrom(address(this), auction.seller, tokenId);
+        
+        // Then completely deactivate and clean up the auction
+        _registry.deactivateAuction(tokenId);
+        
         emit AuctionCancelled(tokenId);
     }
 
     function getAuction(uint256 tokenId) external view override returns (Auction memory) {
-        return _auctions[tokenId];
+        return _registry.getAuction(tokenId);
     }
     function updateCreationFee(uint256 newFee) external onlyOwner {
         creationFee = newFee;
@@ -285,23 +243,6 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         _nftContract.transferFrom(address(this), recipient, tokenId);
     }
     function getUserAuctions(address user) external view returns (Auction[] memory) {
-        uint256[] memory userAuctionIds = _userAuctions[user];
-        Auction[] memory auctions = new Auction[](userAuctionIds.length);
-        
-        for(uint256 i = 0; i < userAuctionIds.length; i++) {
-            auctions[i] = _auctions[userAuctionIds[i]];
-        }
-        
-        return auctions;
-    }
-    function _cleanupAuction(uint256 tokenId) internal {
-        uint256[] storage userAuctions = _userAuctions[_auctions[tokenId].seller];
-        for(uint256 i = 0; i < userAuctions.length; i++) {
-            if(userAuctions[i] == tokenId) {
-                userAuctions[i] = userAuctions[userAuctions.length - 1];
-                userAuctions.pop();
-                break;
-            }
-        }
+        return _registry.getUserAuctions(user);
     }
 }

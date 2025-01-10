@@ -14,11 +14,22 @@ contract NFTRegistry is Ownable {
     
     function registerNFT(address collection, address owner, uint256 tokenId) external {
         require(msg.sender == collection, "Only NFT contract can register");
-        _userNFTs[owner].push(tokenId);
-        _nftCollections[collection][tokenId] = true;
-        _allTokenIds.push(tokenId);
-        _tokenCollections[tokenId] = collection;
-        emit NFTRegistered(collection, owner, tokenId);
+        require(owner != address(0), "Invalid owner address");
+        require(!_nftCollections[collection][tokenId], "Token ID already registered");
+        require(collection != address(0), "Invalid collection address");
+        
+        try InterfaceERC721(collection).ownerOf(tokenId) returns (address tokenOwner) {
+            require(tokenOwner == owner, "Token owner mismatch");
+            
+            _userNFTs[owner].push(tokenId);
+            _nftCollections[collection][tokenId] = true;
+            _allTokenIds.push(tokenId);
+            _tokenCollections[tokenId] = collection;
+            
+            emit NFTRegistered(collection, owner, tokenId);
+        } catch {
+            revert("Token does not exist");
+        }
     }
     
     function transferNFT(address collection, address from, address to, uint256 tokenId) external {
@@ -37,6 +48,7 @@ contract NFTRegistry is Ownable {
     }
     
     function getAllNFTs() external view returns (uint256[] memory) {
+        // Remove the require statement and just return the array
         uint256[] memory result = new uint256[](_allTokenIds.length);
         for(uint256 i = 0; i < _allTokenIds.length; i++) {
             result[i] = _allTokenIds[i];

@@ -33,18 +33,37 @@ export function createNFTRegistryContract(
   const contract = new ethers.Contract(address, NFTRegistryABI.abi, provider);
 
   return {
-    registerNFT: (collection, owner, tokenId) => 
-      contract.registerNFT(collection, owner, tokenId),
+    registerNFT: async (collection: string, owner: string, tokenId: ethers.BigNumberish) => {
+      try {
+        console.log('Registering NFT:', { collection, owner, tokenId });
+        const tx = await contract.registerNFT(collection, owner, tokenId);
+        const receipt = await tx.wait();
+        console.log('NFT registration confirmed:', receipt);
+        return tx;
+      } catch (error: any) {
+        console.error('NFT registration error:', error);
+        throw error;
+      }
+    },
+    
     transferNFT: (collection, from, to, tokenId) => 
       contract.transferNFT(collection, from, to, tokenId),
+    
     getUserNFTs: async (user) => {
       const result = await contract.getUserNFTs(user);
-      return Array.isArray(result) ? result : [];
+      return result;
     },
+    
     getAllNFTs: async () => {
-      const result = await contract.getAllNFTs();
-      return Array.isArray(result) ? result : [];
+      try {
+        const result = await contract.getAllNFTs();
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.warn('Error fetching NFTs, returning empty array:', error);
+        return [];
+      }
     },
+    
     getNFTCollection: (tokenId) => 
       contract.getNFTCollection(tokenId)
   };

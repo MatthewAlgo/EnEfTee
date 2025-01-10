@@ -98,15 +98,33 @@ contract NFT is InterfaceERC721, Ownable {
         require(_owners[tokenId] == address(0), "Token already minted");
         require(bytes(tokenURI_).length > 0, "URI cannot be empty");
 
+        // First mint the token
         _balances[to] += 1;
         _owners[tokenId] = to;
         _tokenURIs[tokenId] = tokenURI_;
 
-        _userRecords.recordTransaction(to, UserRecords.TransactionType.MINT, tokenId, 0, address(0), to, true);
-
-        emit TokenURISet(tokenId, tokenURI_);
-        emit Transfer(address(0), to, tokenId);
-        _registry.registerNFT(address(this), to, tokenId);
+        // Then register it in the registry
+        try _registry.registerNFT(address(this), to, tokenId) {
+            emit TokenURISet(tokenId, tokenURI_);
+            emit Transfer(address(0), to, tokenId);
+            
+            // Record the transaction last
+            _userRecords.recordTransaction(
+                to, 
+                UserRecords.TransactionType.MINT, 
+                tokenId, 
+                0, 
+                address(0), 
+                to, 
+                true
+            );
+        } catch Error(string memory reason) {
+            // Revert the minting if registration fails
+            _balances[to] -= 1;
+            delete _owners[tokenId];
+            delete _tokenURIs[tokenId];
+            revert(reason);
+        }
     }
 
     function _transfer(address from, address to, uint256 tokenId) internal {

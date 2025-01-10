@@ -51,6 +51,7 @@ const Header = ({ onMenuClick }: HeaderProps) => {
                     <nav className="hidden md:flex space-x-8">
                         <NavLink href="/explore" label="Explore" />
                         <NavLink href="/auctions" label="Live Auctions" />
+                        <NavLink href="/my_ended_auctions" label="My Ended Auctions" />
                         <NavLink href="/create" label="Create" />
                         <NavLink href="/my_nfts" label="My NFTs" />
                         <NavLink href="/activity" label="Activity" />
