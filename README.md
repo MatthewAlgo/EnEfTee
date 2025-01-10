@@ -13,6 +13,23 @@ Welcome to the **NFT Auction Marketplace**, a decentralized platform for minting
 
 ---
 
+---
+
+## Preview
+
+Below are some screenshots of the platform:
+
+### Home Page
+![Home Page](assets/homepage.png)
+
+### Auction Page
+![Auction Page](assets/auction_page.png)
+
+### Minting Page
+![Minting Page](assets/minting_page.png)
+
+---
+
 ## Tech Stack
 
 ### Frontend
