@@ -13,6 +13,16 @@ export interface Auction {
   highestBid: bigint;
 }
 
+// Add utility function for filtering expired auctions
+export function filterExpiredAuctions(auctions: Auction[], userAddress: string): Auction[] {
+  const currentTime = Math.floor(Date.now() / 1000);
+  return auctions.filter(auction => 
+    auction.active && 
+    auction.seller.toLowerCase() === userAddress.toLowerCase() &&
+    Number(auction.startTime) + Number(auction.duration) <= currentTime
+  );
+}
+
 export interface NFTAuctionContract {
   creationFee(): Promise<bigint>;
   bidFee(): Promise<bigint>;
@@ -92,6 +102,10 @@ export interface NFTAuctionContract {
     newReservePrice: ethers.BigNumberish,
     newDuration: ethers.BigNumberish
   ): Promise<ethers.ContractTransactionResponse>;
+
+  getUserExpiredAuctions(
+    user: string
+  ): Promise<Auction[]>;
 }
 
 export function createNFTAuctionContract(
@@ -158,6 +172,16 @@ export function createNFTAuctionContract(
       contract.whitelistCollection(collection, status),
     
     updateAuctionParameters: (tokenId, newReservePrice, newDuration) =>
-      contract.updateAuctionParameters(tokenId, newReservePrice, newDuration)
+      contract.updateAuctionParameters(tokenId, newReservePrice, newDuration),
+    
+    getUserExpiredAuctions: async (user: string) => {
+      try {
+        const result = await contract.getUserAuctions(user);
+        return filterExpiredAuctions(result, user);
+      } catch (error) {
+        console.error('Error getting expired auctions:', error);
+        return [];
+      }
+    }
   };
 }

@@ -51,17 +51,12 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
         _userRecords = UserRecords(userRecordsAddress);
     }
 
-    function whitelistCollection(address collection, bool status) external onlyOwner {
-        _registry.whitelistCollection(collection, status);
-    }
-
     function createAuction(
         uint256 tokenId,
         uint256 startingPrice,
         uint256 reservePrice,
         uint256 duration
     ) external payable override whenNotPaused {
-        require(_registry.isCollectionWhitelisted(address(_nftContract)), "Collection not whitelisted");
         require(msg.value >= creationFee, "Insufficient creation fee");
         require(duration >= minAuctionDuration && duration <= maxAuctionDuration, "Invalid auction duration");
         require(startingPrice > 0, "Starting price must be greater than 0");
@@ -160,6 +155,7 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
             emit AuctionCancelled(auction.tokenId);
         }
 
+        // Clean up the auction completely
         _registry.deactivateAuction(auction.tokenId);
     }
 
@@ -200,12 +196,16 @@ contract NFTAuction is Ownable, Pausable, InterfaceNFTAuction {
 
     function cancelAuction(uint256 tokenId) external override whenNotPaused {
         Auction memory auction = _registry.getAuction(tokenId);
-        require(auction.active, "Auction is not active");
+        require(auction.active, "Auction not active");
         require(msg.sender == auction.seller || msg.sender == owner(), "Not authorized");
         require(auction.highestBid == 0, "Cannot cancel auction with bids");
 
-        _registry.deactivateAuction(tokenId);
+        // First transfer the NFT back
         _nftContract.transferFrom(address(this), auction.seller, tokenId);
+        
+        // Then completely deactivate and clean up the auction
+        _registry.deactivateAuction(tokenId);
+        
         emit AuctionCancelled(tokenId);
     }
 

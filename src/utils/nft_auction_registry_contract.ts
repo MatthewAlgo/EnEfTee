@@ -3,15 +3,9 @@ import NFTAuctionRegistryABI from '../../artifacts/contracts/NFTAuctionRegistry.
 import { Auction } from './nft_auction_contract';
 
 export interface NFTAuctionRegistryContract {
-  whitelistedCollections(collection: string): Promise<boolean>;
-  isCollectionWhitelisted(collection: string): Promise<boolean>;
   getAuction(tokenId: ethers.BigNumberish): Promise<Auction>;
   getUserAuctions(user: string): Promise<Auction[]>;
   getAllActiveAuctions(): Promise<Auction[]>;
-  whitelistCollection(
-    collection: string,
-    status: boolean
-  ): Promise<ethers.ContractTransactionResponse>;
   updateAuctionParameters(
     tokenId: ethers.BigNumberish,
     newReservePrice: ethers.BigNumberish,
@@ -30,18 +24,12 @@ export function createNFTAuctionRegistryContract(
   );
 
   return {
-    whitelistedCollections: (collection) => 
-      contract.whitelistedCollections(collection),
-    isCollectionWhitelisted: (collection) => 
-      contract.isCollectionWhitelisted(collection),
     getAuction: (tokenId) => 
       contract.getAuction(tokenId),
     getUserAuctions: (user) => 
       contract.getUserAuctions(user),
     getAllActiveAuctions: () => 
       contract.getAllActiveAuctions(),
-    whitelistCollection: (collection, status) => 
-      contract.whitelistCollection(collection, status),
     updateAuctionParameters: (tokenId, newReservePrice, newDuration) =>
       contract.updateAuctionParameters(tokenId, newReservePrice, newDuration)
   };

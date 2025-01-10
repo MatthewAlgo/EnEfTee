@@ -125,6 +125,7 @@ function AuctionsContent() {
       const nftContract = createNFTContract(NFT_CONTRACT_ADDRESS, signer);
 
       const activeAuctions = await auctionContract.getAllActiveAuctions();
+      console.log('Active auctions:', activeAuctions);
       
       const auctionPromises = activeAuctions.map(async (auction) => {
         const uri = await nftContract.tokenURI(auction.tokenId);

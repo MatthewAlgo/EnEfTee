@@ -9,13 +9,11 @@ contract NFTAuctionRegistry is Ownable {
     mapping(uint256 => InterfaceNFTAuction.Auction) private _auctions;
     mapping(address => uint256[]) private _userAuctions;
     uint256[] private _activeAuctions;
-    mapping(address => bool) public whitelistedCollections;
 
     // Events
     event AuctionRegistered(uint256 indexed tokenId, address indexed seller);
     event AuctionUpdated(uint256 indexed tokenId, address indexed bidder, uint256 amount);
     event AuctionDeactivated(uint256 indexed tokenId);
-    event CollectionWhitelisted(address indexed collection, bool status);
 
     modifier onlyAuctionContract() {
         require(msg.sender == owner(), "Only auction contract");
@@ -29,7 +27,9 @@ contract NFTAuctionRegistry is Ownable {
         uint256 reservePrice,
         uint256 duration
     ) external onlyAuctionContract {
-        require(_auctions[tokenId].seller == address(0), "Auction already exists");
+        // Remove the check for seller == address(0) since we're now properly deleting auctions
+        // Just check if the auction is currently active
+        require(!_auctions[tokenId].active, "Auction already exists");
         
         _auctions[tokenId] = InterfaceNFTAuction.Auction({
             seller: seller,
@@ -62,8 +62,19 @@ contract NFTAuctionRegistry is Ownable {
 
     function deactivateAuction(uint256 tokenId) external onlyAuctionContract {
         require(_auctions[tokenId].active, "Auction not active");
-        _auctions[tokenId].active = false;
+        
+        // Store seller address before deleting auction data
+        address seller = _auctions[tokenId].seller;
+        
+        // Remove from active auctions
         _removeFromActiveAuctions(tokenId);
+        
+        // Remove from user auctions
+        _removeFromUserAuctions(tokenId, seller);
+        
+        // Completely delete the auction
+        delete _auctions[tokenId];
+        
         emit AuctionDeactivated(tokenId);
     }
 
@@ -75,12 +86,6 @@ contract NFTAuctionRegistry is Ownable {
         require(_auctions[tokenId].active, "Auction not active");
         _auctions[tokenId].reservePrice = newReservePrice;
         _auctions[tokenId].duration = newDuration;
-    }
-
-    function whitelistCollection(address collection, bool status) external onlyOwner {
-        require(collection != address(0), "Invalid collection address");
-        whitelistedCollections[collection] = status;
-        emit CollectionWhitelisted(collection, status);
     }
 
     function getAuction(uint256 tokenId) external view returns (InterfaceNFTAuction.Auction memory) {
@@ -99,10 +104,28 @@ contract NFTAuctionRegistry is Ownable {
     }
 
     function getAllActiveAuctions() external view returns (InterfaceNFTAuction.Auction[] memory) {
-        InterfaceNFTAuction.Auction[] memory activeAuctions = new InterfaceNFTAuction.Auction[](_activeAuctions.length);
-        for (uint256 i = 0; i < _activeAuctions.length; i++) {
-            activeAuctions[i] = _auctions[_activeAuctions[i]];
+        uint256 activeCount = 0;
+        
+        // Count truly active auctions (not expired)
+        for(uint256 i = 0; i < _activeAuctions.length; i++) {
+            InterfaceNFTAuction.Auction memory auction = _auctions[_activeAuctions[i]];
+            if (auction.active && block.timestamp < auction.startTime + auction.duration) {
+                activeCount++;
+            }
         }
+        
+        InterfaceNFTAuction.Auction[] memory activeAuctions = new InterfaceNFTAuction.Auction[](activeCount);
+        uint256 index = 0;
+        
+        // Fill array with active auctions
+        for(uint256 i = 0; i < _activeAuctions.length && index < activeCount; i++) {
+            InterfaceNFTAuction.Auction memory auction = _auctions[_activeAuctions[i]];
+            if (auction.active && block.timestamp < auction.startTime + auction.duration) {
+                activeAuctions[index] = auction;
+                index++;
+            }
+        }
+        
         return activeAuctions;
     }
 
@@ -127,7 +150,14 @@ contract NFTAuctionRegistry is Ownable {
         }
     }
 
-    function isCollectionWhitelisted(address collection) external view returns (bool) {
-        return whitelistedCollections[collection];
+    function _removeFromUserAuctions(uint256 tokenId, address seller) internal {
+        uint256[] storage userAuctions = _userAuctions[seller];
+        for(uint256 i = 0; i < userAuctions.length; i++) {
+            if(userAuctions[i] == tokenId) {
+                userAuctions[i] = userAuctions[userAuctions.length - 1];
+                userAuctions.pop();
+                break;
+            }
+        }
     }
 }

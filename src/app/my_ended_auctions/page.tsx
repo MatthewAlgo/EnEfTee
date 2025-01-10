@@ -6,8 +6,8 @@ import { AuthProvider, useAuth } from '../../context/authcontext';
 import Header from '../../components/common/header/header';
 import Footer from '../../components/common/footer/footer';
 import { createNFTContract } from '../../utils/nft_contract';
-import { createNFTAuctionContract } from '../../utils/nft_auction_contract';
-import { CustomPlaceholder, generateCustomPlaceholderURL  } from 'react-placeholder-image';
+import { createNFTAuctionContract, filterExpiredAuctions } from '../../utils/nft_auction_contract';
+import { generateCustomPlaceholderURL } from 'react-placeholder-image';
 
 const NFT_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || '';
 const AUCTION_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS || '';
@@ -34,68 +34,66 @@ export default function MyEndedAuctions() {
 }
 
 function MyEndedAuctionsContent() {
-  const { provider, isAuthenticated, isConnecting } = useAuth();
+  const { provider, isAuthenticated } = useAuth();
   const [auctions, setAuctions] = useState<EndedAuctionNFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated && provider) {
-      loadEndedAuctions();
+      loadExpiredAuctions();
     }
   }, [isAuthenticated, provider]);
 
-  const loadEndedAuctions = async () => {
+  const loadExpiredAuctions = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const signer = await provider!.getSigner();
       const userAddress = await signer.getAddress();
       const auctionContract = createNFTAuctionContract(AUCTION_CONTRACT_ADDRESS, signer);
+      
+      // Get all user auctions and filter on client side
+      const allAuctions = await auctionContract.getUserAuctions(userAddress);
+      const expiredAuctions = filterExpiredAuctions(allAuctions, userAddress);
+      
+      console.log('All auctions:', allAuctions);
+      console.log('Filtered expired auctions:', expiredAuctions);
+
+      if (!expiredAuctions || expiredAuctions.length === 0) {
+        setAuctions([]);
+        return;
+      }
+
       const nftContract = createNFTContract(NFT_CONTRACT_ADDRESS, signer);
 
-      const userAuctions = await auctionContract.getUserAuctions(userAddress);
-      
-      // Filter only inactive auctions where the user is the seller
-      const endedAuctions = userAuctions.filter(auction => 
-        auction.active && 
-        auction.seller.toLowerCase() === userAddress.toLowerCase()
-      );
-
-      const auctionPromises = endedAuctions.map(async (auction) => {
+      // Use the new contract method to get expired auctions
+      const auctionPromises = expiredAuctions.map(async (auction) => {
         try {
-          // Check if token exists
-          try {
-            await nftContract.ownerOf(auction.tokenId);
-          } catch (error) {
-            console.log(`Token ${auction.tokenId} does not exist, skipping...`);
-            return null;
-          }
-
           let metadata = {
             name: `NFT #${auction.tokenId}`,
             description: 'No description available',
             image: generateCustomPlaceholderURL(200, 200, {
-                backgroundColor: '#123456',
-                textColor: '#ffffff',
-                text: auction.tokenId.toString(),
-              })
+              backgroundColor: '#123456',
+              textColor: '#ffffff',
+              text: auction.tokenId.toString(),
+            })
           };
 
           try {
             const uri = await nftContract.tokenURI(auction.tokenId);
             const response = await fetch(uri);
-            if (!response.ok) throw new Error('Failed to fetch metadata');
-            const fetchedMetadata = await response.json();
-            
-            // Only update metadata if we successfully fetched it
-            metadata = {
-              name: fetchedMetadata.name || metadata.name,
-              description: fetchedMetadata.description || metadata.description,
-              image: fetchedMetadata.image || metadata.image
-            };
+            if (response.ok) {
+              const fetchedMetadata = await response.json();
+              metadata = {
+                name: fetchedMetadata.name || metadata.name,
+                description: fetchedMetadata.description || metadata.description,
+                image: fetchedMetadata.image || metadata.image
+              };
+            }
           } catch (error) {
             console.warn(`Failed to fetch metadata for token ${auction.tokenId}:`, error);
-            // Continue with default metadata
           }
           
           return {
@@ -111,7 +109,7 @@ function MyEndedAuctionsContent() {
             active: auction.active
           };
         } catch (error) {
-          console.error(`Error loading NFT ${auction.tokenId}:`, error);
+          console.error(`Error processing auction ${auction.tokenId}:`, error);
           return null;
         }
       });
@@ -121,7 +119,8 @@ function MyEndedAuctionsContent() {
       
       setAuctions(loadedAuctions);
     } catch (error) {
-      console.error('Error loading ended auctions:', error);
+      console.error('Error loading expired auctions:', error);
+      setError('Failed to load expired auctions. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -130,16 +129,18 @@ function MyEndedAuctionsContent() {
   const handleFinalizeAuction = async (tokenId: string) => {
     try {
       setProcessingAction(tokenId);
+      setError(null);
       const signer = await provider!.getSigner();
       const auctionContract = createNFTAuctionContract(AUCTION_CONTRACT_ADDRESS, signer);
       
       const tx = await auctionContract.finalizeExpiredAuction(tokenId);
       await tx.wait();
       
-      await loadEndedAuctions();
-    } catch (error) {
+      // Refresh the auctions list after successful finalization
+      await loadExpiredAuctions();
+    } catch (error: any) {
       console.error('Error finalizing auction:', error);
-      alert('Failed to finalize auction: ' + (error as Error).message);
+      setError(error.message || 'Failed to finalize auction. Please try again.');
     } finally {
       setProcessingAction(null);
     }
@@ -150,7 +151,7 @@ function MyEndedAuctionsContent() {
       <div className="min-h-screen bg-gradient-to-b from-gray-900 to-purple-900">
         <Header onMenuClick={() => {}} />
         <main className="container mx-auto px-4 py-8">
-          <p className="text-white text-center">Please connect your wallet to view your ended auctions.</p>
+          <p className="text-white text-center">Please connect your wallet to view your expired auctions.</p>
         </main>
         <Footer />
       </div>
@@ -161,12 +162,18 @@ function MyEndedAuctionsContent() {
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-purple-900">
       <Header onMenuClick={() => {}} />
       <main className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold text-white mb-8">My Ended Auctions</h1>
+        <h1 className="text-4xl font-bold text-white mb-8">My Expired Auctions</h1>
+
+        {error && (
+          <div className="bg-red-500/20 border border-red-500 text-red-100 p-4 rounded-lg mb-6">
+            {error}
+          </div>
+        )}
 
         {isLoading ? (
-          <p className="text-white text-center">Loading your ended auctions...</p>
+          <p className="text-white text-center">Loading your expired auctions...</p>
         ) : auctions.length === 0 ? (
-          <p className="text-white text-center">You don't have any ended auctions.</p>
+          <p className="text-white text-center">You don't have any expired auctions to finalize.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {auctions.map((auction) => (
@@ -207,11 +214,17 @@ function MyEndedAuctionsContent() {
                   </div>
                 </div>
 
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Status:</span>
+                    <span className="text-yellow-400">Expired</span>
+                  </div>
+                  
                   {auction.highestBid === 0n ? (
                     <button
                       onClick={() => handleFinalizeAuction(auction.tokenId)}
                       disabled={processingAction === auction.tokenId}
-                      className="mt-4 w-full px-4 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600 disabled:bg-purple-400"
+                      className="w-full px-4 py-2 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-600 disabled:bg-purple-400 transition-colors"
                     >
                       {processingAction === auction.tokenId ? 'Processing...' : 'Reclaim NFT'}
                     </button>
@@ -219,12 +232,13 @@ function MyEndedAuctionsContent() {
                     <button
                       onClick={() => handleFinalizeAuction(auction.tokenId)}
                       disabled={processingAction === auction.tokenId}
-                      className="mt-4 w-full px-4 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 disabled:bg-green-400"
+                      className="w-full px-4 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 disabled:bg-green-400 transition-colors"
                     >
                       {processingAction === auction.tokenId ? 'Processing...' : 'Finalize Auction'}
                     </button>
                   )}
                 </div>
+              </div>
             ))}
           </div>
         )}
