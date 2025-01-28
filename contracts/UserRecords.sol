@@ -22,14 +22,8 @@ contract UserRecords is Ownable {
     event TransactionRecorded(address indexed user, TransactionType indexed transactionType, uint256 tokenId, uint256 value, uint256 timestamp);
 
     function recordTransaction(address user, TransactionType transactionType, uint256 tokenId, uint256 value, address from, address to, bool success) external {
-        Transaction memory newTx = Transaction({
-            timestamp: block.timestamp,
-            transactionType: transactionType,
-            tokenId: tokenId,
-            value: value,
-            from: from,
-            to: to,
-            success: success
+        Transaction memory newTx = Transaction({ timestamp: block.timestamp, transactionType: transactionType, tokenId: tokenId,
+            value: value, from: from, to: to,success: success
         });
 
         _userTransactions[user].push(newTx);

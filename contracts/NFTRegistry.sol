@@ -48,18 +48,13 @@ contract NFTRegistry is Ownable {
     }
     
     function getAllNFTs() external view returns (uint256[] memory) {
-        // Remove the require statement and just return the array
         uint256[] memory result = new uint256[](_allTokenIds.length);
         for(uint256 i = 0; i < _allTokenIds.length; i++) {
             result[i] = _allTokenIds[i];
         }
         return result;
     }
-    
-    function getNFTCollection(uint256 tokenId) external view returns (address) {
-        return _tokenCollections[tokenId];
-    }
-    
+   
     function _removeNFTFromOwner(address owner, uint256 tokenId) private {
         uint256[] storage userTokens = _userNFTs[owner];
         for (uint256 i = 0; i < userTokens.length; i++) {

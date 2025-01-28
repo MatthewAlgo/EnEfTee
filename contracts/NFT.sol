@@ -22,11 +22,7 @@ contract NFT is InterfaceERC721, Ownable {
     event TokenURISet(uint256 indexed tokenId, string uri);
 
     constructor(
-        string memory name_, 
-        string memory symbol_, 
-        address registryAddress,
-        address userRecordsAddress
-    ) {
+        string memory name_, string memory symbol_, address registryAddress, address userRecordsAddress) {
         _name = name_;
         _symbol = symbol_;
         _registry = NFTRegistry(registryAddress);
@@ -46,10 +42,6 @@ contract NFT is InterfaceERC721, Ownable {
         string memory uri = _tokenURIs[tokenId];
         require(bytes(uri).length > 0, "URI not set");
         return uri;
-    }
-
-    function balanceOf(address owner) external view override returns (uint256) {
-        return _balances[owner];
     }
 
     function ownerOf(uint256 tokenId) external view override returns (address) {
@@ -72,10 +64,6 @@ contract NFT is InterfaceERC721, Ownable {
         emit ApprovalForAll(msg.sender, operator, approved);
     }
 
-    function isApprovedForAll(address owner, address operator) external view override returns (bool) {
-        return _operatorApprovals[owner][operator];
-    }
-
     function transferFrom(address from, address to, uint256 tokenId) public override {
         require(_isApprovedOrOwner(msg.sender, tokenId), "Not authorized");
         _transfer(from, to, tokenId);
@@ -89,7 +77,6 @@ contract NFT is InterfaceERC721, Ownable {
         _owners[tokenId] = to;
 
         _userRecords.recordTransaction(to, UserRecords.TransactionType.MINT, tokenId, 0, address(0), to, true);
-
         emit Transfer(address(0), to, tokenId);
     }
 
@@ -98,28 +85,16 @@ contract NFT is InterfaceERC721, Ownable {
         require(_owners[tokenId] == address(0), "Token already minted");
         require(bytes(tokenURI_).length > 0, "URI cannot be empty");
 
-        // First mint the token
         _balances[to] += 1;
         _owners[tokenId] = to;
         _tokenURIs[tokenId] = tokenURI_;
 
-        // Then register it in the registry
         try _registry.registerNFT(address(this), to, tokenId) {
             emit TokenURISet(tokenId, tokenURI_);
             emit Transfer(address(0), to, tokenId);
             
-            // Record the transaction last
-            _userRecords.recordTransaction(
-                to, 
-                UserRecords.TransactionType.MINT, 
-                tokenId, 
-                0, 
-                address(0), 
-                to, 
-                true
-            );
+            _userRecords.recordTransaction(to, UserRecords.TransactionType.MINT, tokenId, 0, address(0), to, true);
         } catch Error(string memory reason) {
-            // Revert the minting if registration fails
             _balances[to] -= 1;
             delete _owners[tokenId];
             delete _tokenURIs[tokenId];

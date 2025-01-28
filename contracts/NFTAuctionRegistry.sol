@@ -24,7 +24,6 @@ contract NFTAuctionRegistry is Ownable {
         uint256 tokenId,
         address seller,
         uint256 startingPrice,
-        uint256 reservePrice,
         uint256 duration
     ) external onlyAuctionContract {
         // Remove the check for seller == address(0) since we're now properly deleting auctions
@@ -35,7 +34,6 @@ contract NFTAuctionRegistry is Ownable {
             seller: seller,
             tokenId: tokenId,
             startingPrice: startingPrice,
-            reservePrice: reservePrice,
             duration: duration,
             startTime: block.timestamp,
             active: true,
@@ -62,30 +60,12 @@ contract NFTAuctionRegistry is Ownable {
 
     function deactivateAuction(uint256 tokenId) external onlyAuctionContract {
         require(_auctions[tokenId].active, "Auction not active");
-        
-        // Store seller address before deleting auction data
         address seller = _auctions[tokenId].seller;
-        
-        // Remove from active auctions
         _removeFromActiveAuctions(tokenId);
-        
-        // Remove from user auctions
         _removeFromUserAuctions(tokenId, seller);
-        
-        // Completely delete the auction
         delete _auctions[tokenId];
         
         emit AuctionDeactivated(tokenId);
-    }
-
-    function updateAuctionParameters(
-        uint256 tokenId,
-        uint256 newReservePrice,
-        uint256 newDuration
-    ) external onlyAuctionContract {
-        require(_auctions[tokenId].active, "Auction not active");
-        _auctions[tokenId].reservePrice = newReservePrice;
-        _auctions[tokenId].duration = newDuration;
     }
 
     function getAuction(uint256 tokenId) external view returns (InterfaceNFTAuction.Auction memory) {

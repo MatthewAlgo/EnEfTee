@@ -5,7 +5,6 @@ export interface Auction {
   seller: string;
   tokenId: bigint;
   startingPrice: bigint;
-  reservePrice: bigint;
   duration: bigint;
   startTime: bigint;
   active: boolean;
@@ -34,7 +33,6 @@ export interface NFTAuctionContract {
   createAuction(
     tokenId: ethers.BigNumberish,
     startingPrice: ethers.BigNumberish,
-    reservePrice: ethers.BigNumberish,
     duration: ethers.BigNumberish,
     overrides?: ethers.Overrides & { value?: ethers.BigNumberish }
   ): Promise<ethers.ContractTransactionResponse>;
@@ -42,10 +40,6 @@ export interface NFTAuctionContract {
   placeBid(
     tokenId: ethers.BigNumberish,
     overrides?: ethers.Overrides & { value?: ethers.BigNumberish }
-  ): Promise<ethers.ContractTransactionResponse>;
-  
-  endAuction(
-    tokenId: ethers.BigNumberish
   ): Promise<ethers.ContractTransactionResponse>;
   
   getAuction(
@@ -57,32 +51,6 @@ export interface NFTAuctionContract {
   ): Promise<Auction[]>;
   
   getAllActiveAuctions(): Promise<Auction[]>;
-  
-  updateCreationFee(
-    newFee: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
-  
-  updateBidFee(
-    newFee: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
-  
-  updateFinalizePercentage(
-    newPercentage: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
-  
-  updateMinBidIncrement(
-    newIncrement: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
-
-  emergencyWithdraw(
-    recipient: string,
-    amount: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
-
-  emergencyWithdrawNFT(
-    tokenId: ethers.BigNumberish,
-    recipient: string
-  ): Promise<ethers.ContractTransactionResponse>;
 
   cancelAuction(
     tokenId: ethers.BigNumberish
@@ -97,11 +65,6 @@ export interface NFTAuctionContract {
     status: boolean
   ): Promise<ethers.ContractTransactionResponse>;
 
-  updateAuctionParameters(
-    tokenId: ethers.BigNumberish,
-    newReservePrice: ethers.BigNumberish,
-    newDuration: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
 
   getUserExpiredAuctions(
     user: string
@@ -126,14 +89,11 @@ export function createNFTAuctionContract(
     minAuctionDuration: () => contract.minAuctionDuration(),
     maxAuctionDuration: () => contract.maxAuctionDuration(),
     
-    createAuction: (tokenId, startingPrice, reservePrice, duration, overrides) =>
-      contract.createAuction(tokenId, startingPrice, reservePrice, duration, overrides),
+    createAuction: (tokenId, startingPrice, duration, overrides) =>
+      contract.createAuction(tokenId, startingPrice, duration, overrides),
     
     placeBid: (tokenId, overrides) => 
       contract.placeBid(tokenId, overrides),
-    
-    endAuction: (tokenId) => 
-      contract.endAuction(tokenId),
     
     getAuction: (tokenId) => 
       contract.getAuction(tokenId),
@@ -143,25 +103,7 @@ export function createNFTAuctionContract(
     
     getAllActiveAuctions: () => 
       contract.getAllActiveAuctions(),
-    
-    updateCreationFee: (newFee) => 
-      contract.updateCreationFee(newFee),
-    
-    updateBidFee: (newFee) => 
-      contract.updateBidFee(newFee),
-    
-    updateFinalizePercentage: (newPercentage) => 
-      contract.updateFinalizePercentage(newPercentage),
-    
-    updateMinBidIncrement: (newIncrement) => 
-      contract.updateMinBidIncrement(newIncrement),
-    
-    emergencyWithdraw: (recipient, amount) => 
-      contract.emergencyWithdraw(recipient, amount),
-    
-    emergencyWithdrawNFT: (tokenId, recipient) => 
-      contract.emergencyWithdrawNFT(tokenId, recipient),
-    
+
     cancelAuction: (tokenId) => 
       contract.cancelAuction(tokenId),
     
@@ -170,9 +112,6 @@ export function createNFTAuctionContract(
     
     whitelistCollection: (collection, status) => 
       contract.whitelistCollection(collection, status),
-    
-    updateAuctionParameters: (tokenId, newReservePrice, newDuration) =>
-      contract.updateAuctionParameters(tokenId, newReservePrice, newDuration),
     
     getUserExpiredAuctions: async (user: string) => {
       try {

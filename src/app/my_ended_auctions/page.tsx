@@ -52,9 +52,8 @@ function MyEndedAuctionsContent() {
       setError(null);
       const signer = await provider!.getSigner();
       const userAddress = await signer.getAddress();
+      // Luam toate licitatiile pentru user
       const auctionContract = createNFTAuctionContract(AUCTION_CONTRACT_ADDRESS, signer);
-      
-      // Get all user auctions and filter on client side
       const allAuctions = await auctionContract.getUserAuctions(userAddress);
       const expiredAuctions = filterExpiredAuctions(allAuctions, userAddress);
       
@@ -135,8 +134,6 @@ function MyEndedAuctionsContent() {
       
       const tx = await auctionContract.finalizeExpiredAuction(tokenId);
       await tx.wait();
-      
-      // Refresh the auctions list after successful finalization
       await loadExpiredAuctions();
     } catch (error: any) {
       console.error('Error finalizing auction:', error);

@@ -20,10 +20,6 @@ export interface NFTRegistryContract {
   ): Promise<ethers.BigNumberish[]>;
 
   getAllNFTs(): Promise<Array<ethers.BigNumberish>>;
-  
-  getNFTCollection(
-    tokenId: ethers.BigNumberish
-  ): Promise<string>;
 }
 
 export function createNFTRegistryContract(
@@ -63,8 +59,5 @@ export function createNFTRegistryContract(
         return [];
       }
     },
-    
-    getNFTCollection: (tokenId) => 
-      contract.getNFTCollection(tokenId)
   };
 }

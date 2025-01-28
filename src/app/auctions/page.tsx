@@ -7,6 +7,7 @@ import Header from '../../components/common/header/header';
 import Footer from '../../components/common/footer/footer';
 import { createNFTContract } from '../../utils/nft_contract';
 import { createNFTAuctionContract } from '../../utils/nft_auction_contract';
+import { Snackbar, Alert } from '@mui/material';
 
 const NFT_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_NFT_CONTRACT_ADDRESS || '';
 const AUCTION_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS || '';
@@ -41,6 +42,8 @@ function AuctionsContent() {
   const [cancellingAuction, setCancellingAuction] = useState<string | null>(null);
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<{[key: string]: string}>({});
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' as 'info' | 'success' | 'error'
+  });
 
   useEffect(() => {
     if (isAuthenticated && provider) {
@@ -172,20 +175,45 @@ function AuctionsContent() {
         alert('Bid amount too low');
         return;
       }
-
+      const feeData = await provider!.getFeeData();
       const tx = await auctionContract.placeBid(
         auction.tokenId,
-        { value: ethers.parseEther(bidAmount) }
+        { 
+          value: ethers.parseEther(bidAmount),
+          gasPrice: feeData.gasPrice
+        }
       );
 
-      await tx.wait();
-      alert('Bid placed successfully!');
+      setSnackbar({
+        open: true,
+        message: 'Placing bid... Please wait.',
+        severity: 'info'
+      });
+      const receipt = await tx.wait();
+      
+      if (receipt) {
+        const gasUsed = receipt.gasUsed;
+        const gasPrice = receipt.gasPrice;
+        const gasCost = gasUsed * gasPrice;
+        const gasCostInEth = ethers.formatEther(gasCost);
+
+        setSnackbar({
+          open: true,
+          message: `Bid placed successfully! Gas used: ${gasUsed.toString()} units (${gasCostInEth} ETH)`,
+          severity: 'success'
+        });
+      }
+
       setSelectedAuction(null);
       setBidAmount('');
-      loadAuctions(); 
+      await loadAuctions();
     } catch (error) {
       console.error('Error placing bid:', error);
-      alert('Failed to place bid: ' + (error as Error).message);
+      setSnackbar({
+        open: true,
+        message: `Failed to place bid: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
     }
   };
 
@@ -199,8 +227,6 @@ function AuctionsContent() {
       
       const tx = await contract.cancelAuction(tokenId);
       await tx.wait();
-      
-      // Refresh auctions after cancellation
       loadAuctions();
     } catch (error) {
       console.error('Error cancelling auction:', error);
@@ -216,9 +242,7 @@ function AuctionsContent() {
   };
 
   const canCancelAuction = (auction: AuctionNFT): boolean => {
-    return !isAuctionEnded(auction) && // auction hasn't ended
-           auction.highestBid === 0n && // no bids placed
-           auction.seller.toLowerCase() === userAddress?.toLowerCase(); // user is the seller
+    return !isAuctionEnded(auction) && auction.highestBid === 0n && auction.seller.toLowerCase() === userAddress?.toLowerCase();
   };
 
   if (isConnecting) {
@@ -348,6 +372,19 @@ function AuctionsContent() {
           </div>
         )}
       </main>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       <Footer />
     </div>
   );

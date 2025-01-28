@@ -35,7 +35,6 @@ function MyNFTsContent() {
   const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
   const [auctionForm, setAuctionForm] = useState({
     startingPrice: '',
-    reservePrice: '',
     duration: '3600' // Default duration remains 1 hour
   });
 
@@ -109,7 +108,6 @@ function MyNFTsContent() {
       const tx = await auctionContract.createAuction(
         nft.id,
         ethers.parseEther(auctionForm.startingPrice),
-        ethers.parseEther(auctionForm.reservePrice),
         auctionForm.duration,
         { 
           value: ethers.parseEther("0.1") 
@@ -185,19 +183,6 @@ function MyNFTsContent() {
                     step="0.01"
                     value={auctionForm.startingPrice}
                     onChange={(e) => setAuctionForm({ ...auctionForm, startingPrice: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Reserve Price (ETH)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={auctionForm.reservePrice}
-                    onChange={(e) => setAuctionForm({ ...auctionForm, reservePrice: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white"
                     required
                   />

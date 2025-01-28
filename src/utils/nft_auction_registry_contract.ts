@@ -6,11 +6,6 @@ export interface NFTAuctionRegistryContract {
   getAuction(tokenId: ethers.BigNumberish): Promise<Auction>;
   getUserAuctions(user: string): Promise<Auction[]>;
   getAllActiveAuctions(): Promise<Auction[]>;
-  updateAuctionParameters(
-    tokenId: ethers.BigNumberish,
-    newReservePrice: ethers.BigNumberish,
-    newDuration: ethers.BigNumberish
-  ): Promise<ethers.ContractTransactionResponse>;
 }
 
 export function createNFTAuctionRegistryContract(
@@ -30,7 +25,5 @@ export function createNFTAuctionRegistryContract(
       contract.getUserAuctions(user),
     getAllActiveAuctions: () => 
       contract.getAllActiveAuctions(),
-    updateAuctionParameters: (tokenId, newReservePrice, newDuration) =>
-      contract.updateAuctionParameters(tokenId, newReservePrice, newDuration)
   };
 }

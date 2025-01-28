@@ -6,7 +6,6 @@ interface InterfaceNFTAuction {
         address seller;
         uint256 tokenId;
         uint256 startingPrice;
-        uint256 reservePrice;
         uint256 duration;
         uint256 startTime;
         bool active;
@@ -23,12 +22,10 @@ interface InterfaceNFTAuction {
     function createAuction(
         uint256 tokenId,
         uint256 startingPrice,
-        uint256 reservePrice,
         uint256 duration
     ) external payable;
 
     function placeBid(uint256 tokenId) external payable;
-    function endAuction(uint256 tokenId) external;
     function cancelAuction(uint256 tokenId) external;
     function getAuction(uint256 tokenId) external view returns (Auction memory);
 }

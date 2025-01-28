@@ -5,12 +5,10 @@ export interface NFTContract {
   name(): Promise<string>;
   symbol(): Promise<string>;
   tokenURI(tokenId: ethers.BigNumberish): Promise<string>;
-  balanceOf(owner: string): Promise<bigint>;
   ownerOf(tokenId: ethers.BigNumberish): Promise<string>;
   approve(to: string, tokenId: ethers.BigNumberish): Promise<ethers.ContractTransactionResponse>;
   getApproved(tokenId: ethers.BigNumberish): Promise<string>;
   setApprovalForAll(operator: string, approved: boolean): Promise<ethers.ContractTransactionResponse>;
-  isApprovedForAll(owner: string, operator: string): Promise<boolean>;
   transferFrom(from: string, to: string, tokenId: ethers.BigNumberish): Promise<ethers.ContractTransactionResponse>;
   mint(to: string, tokenId: ethers.BigNumberish): Promise<ethers.ContractTransactionResponse>;
   mintWithMetadata(
@@ -28,12 +26,10 @@ export function createNFTContract(address: string, provider: ethers.Provider | e
     name: () => contract.name(),
     symbol: () => contract.symbol(),
     tokenURI: (tokenId) => contract.tokenURI(tokenId),
-    balanceOf: (owner) => contract.balanceOf(owner),
     ownerOf: (tokenId) => contract.ownerOf(tokenId),
     approve: (to, tokenId) => contract.approve(to, tokenId),
     getApproved: (tokenId) => contract.getApproved(tokenId),
     setApprovalForAll: (operator, approved) => contract.setApprovalForAll(operator, approved),
-    isApprovedForAll: (owner, operator) => contract.isApprovedForAll(owner, operator),
     transferFrom: (from, to, tokenId) => contract.transferFrom(from, to, tokenId),
     mint: (to, tokenId) => contract.mint(to, tokenId),
     mintWithMetadata: async (to: string, tokenId: ethers.BigNumberish, tokenURI: string) => contract.mintWithMetadata(to, tokenId, tokenURI),

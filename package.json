@@ -46,10 +46,13 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/material": "^5.16.14",
     "@thirdweb-dev/sdk": "^4.0.99",
     "autoprefixer": "^10.4.20",
     "lucide-react": "^0.469.0",
-    "next": "^15.1.2",
+    "next": "^15.1.6",
     "next-connect": "^1.0.0",
     "postcss": "^8.4.49",
     "react": "^19.0.0",
