@@ -149,3 +149,9 @@ ignition/deployments/chain-31337
 
 .env
 .env.local
+
+lib/*
+cache_forge/*
+cache_forge
+lib
+forge-std

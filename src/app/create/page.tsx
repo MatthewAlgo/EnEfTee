@@ -45,36 +45,58 @@ function CreateNFTContent() {
     try {
       setIsMinting(true);
       if (!provider) throw new Error('No provider available');
+      
       const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+
+      // Upload image to IPFS
       const imageUrl = await uploadToIPFS(file);
       if (!imageUrl) throw new Error('Failed to upload image to IPFS');
 
+      // Create and upload metadata
       const metadata = {
         name,
         description,
         image: imageUrl,
         attributes: []
       };
+      
       const metadataUrl = await uploadMetadataToIPFS(metadata);
       if (!metadataUrl) throw new Error('Failed to upload metadata to IPFS');
 
       const nftContract = createNFTContract(NFT_CONTRACT_ADDRESS, signer);
-      const timestamp = Date.now().toString();
-      const tokenId = ethers.getBigInt(timestamp);
+      
+      // Generate unique tokenId based on timestamp and address
+      const timestamp = Date.now();
+      const tokenId = ethers.getBigInt(
+        ethers.keccak256(
+          ethers.solidityPacked(
+            ['uint256', 'address'],
+            [timestamp, address]
+          )
+        )
+      );
 
-      const address = await signer.getAddress();
+      console.log('Minting with params:', {
+        address,
+        tokenId: tokenId.toString(),
+        metadataUrl
+      });
 
+      // Simple mint without gas estimation
       const tx = await nftContract.mintWithMetadata(
         address,
         tokenId,
-        metadataUrl,
+        metadataUrl
       );
 
       await tx.wait();
+      
       alert('NFT successfully minted!');
       setName('');
       setDescription('');
       setFile(null);
+      
     } catch (error) {
       console.error('Minting error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

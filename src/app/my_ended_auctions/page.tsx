@@ -25,6 +25,13 @@ type EndedAuctionNFT = {
   active: boolean;
 };
 
+const formatTokenId = (tokenId: string): string => {
+  if (tokenId.length > 12) {
+    return `#${tokenId.slice(0, 6)}...${tokenId.slice(-4)}`;
+  }
+  return `#${tokenId}`;
+};
+
 export default function MyEndedAuctions() {
   return (
     <AuthProvider>
@@ -193,7 +200,7 @@ function MyEndedAuctionsContent() {
                 <div className="space-y-2">
                   <h3 className="text-white text-xl font-bold flex justify-between items-center">
                     <span>{auction.name}</span>
-                    <span className="text-sm text-gray-400">#{auction.tokenId}</span>
+                    <span className="text-sm text-gray-400">{formatTokenId(auction.tokenId)}</span>
                   </h3>
                   
                   <div className="space-y-1">

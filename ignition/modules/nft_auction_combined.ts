@@ -14,12 +14,9 @@ const NFTAuctionCombinedModule = buildModule("NFTAuctionCombinedModule", (m) => 
     "userRecordsAddress", 
     process.env.NEXT_PUBLIC_USER_RECORDS_ADDRESS || ""
   );
-
-  // First deploy the registry
   const nftAuctionRegistry = m.contract("NFTAuctionRegistry", []);
-
-  // Then deploy the auction contract
   const creationFee = ethers.parseEther("0.1").toString();
+
   const bidFee = ethers.parseEther("0.05").toString();
   const finalizePercentage = "250";
   const minDuration = "30";
@@ -33,10 +30,9 @@ const NFTAuctionCombinedModule = buildModule("NFTAuctionCombinedModule", (m) => 
     minDuration,
     maxDuration,
     userRecordsAddress,
-    nftAuctionRegistry // Use the contract reference directly
+    nftAuctionRegistry 
   ]);
 
-  // Transfer registry ownership to auction contract
   m.call(nftAuctionRegistry, "transferOwnership", [nftAuction]);
 
   return { nftAuctionRegistry, nftAuction };

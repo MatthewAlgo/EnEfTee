@@ -26,8 +26,6 @@ contract NFTAuctionRegistry is Ownable {
         uint256 startingPrice,
         uint256 duration
     ) external onlyAuctionContract {
-        // Remove the check for seller == address(0) since we're now properly deleting auctions
-        // Just check if the auction is currently active
         require(!_auctions[tokenId].active, "Auction already exists");
         
         _auctions[tokenId] = InterfaceNFTAuction.Auction({

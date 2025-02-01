@@ -38,9 +38,10 @@ contract NFT is InterfaceERC721, Ownable {
     }
 
     function tokenURI(uint256 tokenId) external view override returns (string memory) {
+        require(isValidTokenId(tokenId), "Invalid token ID");
         require(_owners[tokenId] != address(0), "Token does not exist");
         string memory uri = _tokenURIs[tokenId];
-        require(bytes(uri).length > 0, "URI not set");
+        require(isValidMetadataURI(uri), "URI not set");
         return uri;
     }
 
@@ -65,40 +66,36 @@ contract NFT is InterfaceERC721, Ownable {
     }
 
     function transferFrom(address from, address to, uint256 tokenId) public override {
+        require(isValidTransfer(from, to, tokenId), "Invalid transfer parameters");
         require(_isApprovedOrOwner(msg.sender, tokenId), "Not authorized");
         _transfer(from, to, tokenId);
     }
 
-    function mint(address to, uint256 tokenId) external onlyOwner {
-        require(to != address(0), "Invalid address");
-        require(_owners[tokenId] == address(0), "Token already minted");
-
-        _balances[to] += 1;
-        _owners[tokenId] = to;
-
-        _userRecords.recordTransaction(to, UserRecords.TransactionType.MINT, tokenId, 0, address(0), to, true);
-        emit Transfer(address(0), to, tokenId);
-    }
-
     function mintWithMetadata(address to, uint256 tokenId, string memory tokenURI_) external {
-        require(to != address(0), "Invalid address");
-        require(_owners[tokenId] == address(0), "Token already minted");
-        require(bytes(tokenURI_).length > 0, "URI cannot be empty");
+        require(validateMintParams(to, tokenId, tokenURI_), "Invalid mint parameters");
+        require(_owners[tokenId] == address(0), "Token already exists");
+        require(msg.sender == to || msg.sender == owner(), "Not authorized to mint");
 
         _balances[to] += 1;
         _owners[tokenId] = to;
         _tokenURIs[tokenId] = tokenURI_;
 
+        bool registered = false;
         try _registry.registerNFT(address(this), to, tokenId) {
-            emit TokenURISet(tokenId, tokenURI_);
-            emit Transfer(address(0), to, tokenId);
-            
-            _userRecords.recordTransaction(to, UserRecords.TransactionType.MINT, tokenId, 0, address(0), to, true);
-        } catch Error(string memory reason) {
+            registered = true;
+        } catch {
             _balances[to] -= 1;
             delete _owners[tokenId];
             delete _tokenURIs[tokenId];
-            revert(reason);
+            revert("Failed to register NFT");
+        }
+
+        if (registered) {
+            emit TokenURISet(tokenId, tokenURI_);
+            emit Transfer(address(0), to, tokenId);
+            
+            _userRecords.recordTransaction(to,UserRecords.TransactionType.MINT,tokenId, 0,
+                address(0), to, true);
         }
     }
 
@@ -129,5 +126,23 @@ contract NFT is InterfaceERC721, Ownable {
 
     function getAllTokensOfOwner(address owner) external view returns (uint256[] memory) {
         return _registry.getUserNFTs(owner);
+    }
+
+    function isValidTokenId(uint256 tokenId) private pure returns (bool) {
+        return tokenId > 0;
+    }
+
+    function isValidMetadataURI(string memory uri) private pure returns (bool) {
+        return bytes(uri).length > 0;
+    }
+
+    function isValidTransfer(address from, address to, uint256 tokenId) private pure returns (bool) {
+        return from != address(0) && to != address(0) && tokenId > 0;
+    }
+
+    function validateMintParams(address to, uint256 tokenId, string memory uri) private pure returns (bool) {
+        return to != address(0) && 
+               tokenId > 0 && 
+               bytes(uri).length > 0;
     }
 }
